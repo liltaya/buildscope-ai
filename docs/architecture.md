@@ -10,3 +10,21 @@ BuildScope AI
 │   └── buildscope/
 └── C++ worker foundation
     └── cpp-worker/
+
+## HTTP API
+
+BuildScope exposes a local FastAPI application.
+
+Current architecture:
+
+```text
+HTTP client
+    |
+    v
+FastAPI application
+    |
+    v
+API router
+    |
+    v
+health endpoint

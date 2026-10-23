@@ -64,6 +64,8 @@ def test_configure_logging_respects_requested_level() -> None:
     logger = configure_logging(logging.DEBUG)
 
     assert logger.level == logging.DEBUG
+
+
 def test_json_formatter_includes_exception() -> None:
     formatter = JsonFormatter()
 

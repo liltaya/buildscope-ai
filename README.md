@@ -34,3 +34,46 @@ Run the Python tests:
 
 ```bash
 pytest
+
+## Local API
+
+BuildScope currently provides a minimal FastAPI application.
+
+Start the API:
+
+```bash
+python -m uvicorn apps.api.main:app \
+    --host 127.0.0.1 \
+    --port 8000
+```
+
+For development with automatic reload:
+
+```bash
+python -m uvicorn apps.api.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --reload
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "service": "buildscope-api",
+  "version": "0.1.0"
+}
+```
+
+Interactive API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```

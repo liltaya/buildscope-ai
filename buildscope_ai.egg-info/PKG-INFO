@@ -3,7 +3,48 @@ Name: buildscope-ai
 Version: 0.1.0
 Summary: Local software delivery and reliability intelligence platform
 Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn>=0.30
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: ruff>=0.8; extra == "dev"
 Requires-Dist: mypy>=1.13; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+
+# BuildScope AI
+
+BuildScope AI is a local software delivery and reliability intelligence platform.
+
+It analyzes local Git repositories, executes software pipelines, stores execution history,
+detects failures and regressions, and later supports machine-learning-assisted analysis.
+
+## Current status
+
+Early development.
+
+The current repository contains only the Python and C++ development foundations.
+
+## Requirements
+
+- macOS
+- Python 3.12+
+- C++20 compiler
+- CMake
+- Git
+
+## Python development
+
+Create and activate a virtual environment:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+## Python quality checks
+
+BuildScope uses several automated quality checks.
+
+Run the Python tests:
+
+```bash
+pytest
