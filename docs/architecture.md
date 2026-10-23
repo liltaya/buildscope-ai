@@ -28,3 +28,20 @@ API router
     |
     v
 health endpoint
+## Database layer
+
+BuildScope initially uses SQLite through SQLAlchemy.
+
+Current database architecture:
+
+```text
+Application code
+      |
+      v
+SQLAlchemy Session
+      |
+      v
+SQLAlchemy Engine
+      |
+      v
+SQLite

@@ -77,3 +77,30 @@ Interactive API documentation is available at:
 ```text
 http://127.0.0.1:8000/docs
 ```
+## Database development
+
+BuildScope initially uses SQLite through SQLAlchemy.
+
+The runtime database is stored locally and is not committed to Git.
+
+Example database location:
+
+```text
+data/buildscope.db
+```
+
+Run the database tests:
+
+```bash
+pytest tests/database -v
+```
+
+The database layer currently provides:
+
+- SQLite engine creation
+- modern SQLite transaction configuration
+- foreign-key enforcement
+- SQLAlchemy Session creation
+- schema initialization
+
+No application domain tables exist yet.
