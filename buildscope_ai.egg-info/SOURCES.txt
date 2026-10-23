@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+buildscope/__init__.py
+buildscope_ai.egg-info/PKG-INFO
+buildscope_ai.egg-info/SOURCES.txt
+buildscope_ai.egg-info/dependency_links.txt
+buildscope_ai.egg-info/requires.txt
+buildscope_ai.egg-info/top_level.txt
+tests/test_smoke.py
