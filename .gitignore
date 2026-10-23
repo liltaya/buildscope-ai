@@ -1,13 +1,22 @@
 # macOS
 .DS_Store
 
-# Python
+# Python virtual environments
 .venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
+
+# Test/tool caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Package/build output
+*.egg-info/
+dist/
+site/
 
 # C/C++
 build/
@@ -18,10 +27,9 @@ compile_commands.json
 .vscode/
 .idea/
 
-# Generated data
+# Runtime data
 data/
 models/
 
 # Logs
 *.log
-

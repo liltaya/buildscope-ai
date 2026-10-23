@@ -26,3 +26,11 @@ Create and activate a virtual environment:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
+## Python quality checks
+
+BuildScope uses several automated quality checks.
+
+Run the Python tests:
+
+```bash
+pytest
