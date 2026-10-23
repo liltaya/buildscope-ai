@@ -34,3 +34,51 @@ Run the Python tests:
 
 ```bash
 pytest
+
+## C++ development
+
+BuildScope contains a C++20 core library and worker executable.
+
+Configure:
+
+```bash
+cmake \
+    -S . \
+    -B build \
+    -DBUILD_TESTING=ON \
+    -DCMAKE_BUILD_TYPE=Debug
+```
+
+Build:
+
+```bash
+cmake --build build --parallel
+```
+
+Run the C++ tests:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Run the current worker executable:
+
+```bash
+./build/cpp-worker/buildscope_cpp_worker
+```
+
+Expected output:
+
+```text
+BuildScope C++ worker 0.1.0
+```
+
+Check C++ formatting:
+
+```bash
+clang-format --dry-run --Werror \
+    cpp-worker/include/buildscope_cpp/version.hpp \
+    cpp-worker/src/version.cpp \
+    cpp-worker/src/main.cpp \
+    cpp-worker/tests/version_test.cpp
+```

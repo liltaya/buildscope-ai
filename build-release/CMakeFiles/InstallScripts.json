@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/tayamamenko/Developer/buildscope-ai/build-release/cmake_install.cmake",
+		"/Users/tayamamenko/Developer/buildscope-ai/build-release/cpp-worker/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

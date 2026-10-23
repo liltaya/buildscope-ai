@@ -1,0 +1,6 @@
+/Users/tayamamenko/Developer/buildscope-ai/build-release/CMakeFiles/edit_cache.dir
+/Users/tayamamenko/Developer/buildscope-ai/build-release/CMakeFiles/rebuild_cache.dir
+/Users/tayamamenko/Developer/buildscope-ai/build-release/cpp-worker/CMakeFiles/buildscope_cpp_core.dir
+/Users/tayamamenko/Developer/buildscope-ai/build-release/cpp-worker/CMakeFiles/buildscope_cpp_worker.dir
+/Users/tayamamenko/Developer/buildscope-ai/build-release/cpp-worker/CMakeFiles/edit_cache.dir
+/Users/tayamamenko/Developer/buildscope-ai/build-release/cpp-worker/CMakeFiles/rebuild_cache.dir

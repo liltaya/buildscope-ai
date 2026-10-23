@@ -1,0 +1,35 @@
+name: C++ Quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cpp-quality:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake \
+            -S . \
+            -B build \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: |
+          cmake --build build --parallel
+
+      - name: Run C++ tests
+        run: |
+          ctest \
+            --test-dir build \
+            --output-on-failure
+
+      - name: Run worker smoke check
+        run: |
+          ./build/cpp-worker/buildscope_cpp_worker

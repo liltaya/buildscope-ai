@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbuildscope_cpp_core.a CMakeFiles/buildscope_cpp_core.dir/src/version.cpp.o
+/usr/bin/ranlib libbuildscope_cpp_core.a
