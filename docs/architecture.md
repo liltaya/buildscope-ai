@@ -45,3 +45,17 @@ SQLAlchemy Engine
       |
       v
 SQLite
+
+## Registered repository model
+
+BuildScope now persists registered local repositories.
+
+```text
+Repository
+├── id: UUID
+├── name: string
+├── local_path: unique string
+├── language: optional string
+├── build_system: optional string
+├── test_framework: optional string
+└── created_at: UTC datetime

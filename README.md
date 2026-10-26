@@ -104,3 +104,30 @@ The database layer currently provides:
 - schema initialization
 
 No application domain tables exist yet.
+
+## Repository persistence
+
+BuildScope stores registered local software repositories in SQLite.
+
+A repository currently contains:
+
+- UUID identifier
+- name
+- normalized local path
+- detected language
+- detected build system
+- detected test framework
+- UTC creation timestamp
+
+Detection fields are initially optional because project detection occurs after
+registration.
+
+Local repository paths are unique in the database.
+
+Run repository persistence tests:
+
+```bash
+pytest tests/repositories -v
+```
+
+The HTTP repository-registration API has not been implemented yet.

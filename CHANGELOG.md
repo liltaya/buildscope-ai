@@ -20,3 +20,14 @@
 - Database schema initialization.
 - Database integration tests.
 - Transaction rollback test.
+
+### Added
+
+- Repository SQLAlchemy ORM model.
+- UUID repository identifiers.
+- UTC-aware repository creation timestamps.
+- Repository path normalization.
+- Unique local repository path constraint.
+- Repository database integrity constraints.
+- Repository persistence tests.
+- Repository schema tests.
