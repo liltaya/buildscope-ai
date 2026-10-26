@@ -59,3 +59,28 @@ Repository
 ├── build_system: optional string
 ├── test_framework: optional string
 └── created_at: UTC datetime
+
+## Repository persistence and service layers
+
+```text
+RepositoryService
+       |
+       v
+RepositoryStore
+       |
+       v
+SQLAlchemy Session
+       |
+       v
+SQLite
+```
+
+The RepositoryStore owns persistence queries.
+
+The RepositoryService owns registration rules and transaction boundaries.
+
+The service returns immutable RepositoryDetails objects instead of exposing live ORM objects.
+
+Duplicate repository paths are rejected by both an application lookup and a database uniqueness constraint.
+
+HTTP route integration is not implemented yet.

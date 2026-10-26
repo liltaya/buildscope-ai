@@ -31,3 +31,15 @@
 - Repository database integrity constraints.
 - Repository persistence tests.
 - Repository schema tests.
+
+### Added
+
+- RepositoryStore persistence abstraction.
+- RepositoryService application layer.
+- Immutable RepositoryDetails results.
+- Repository registration and retrieval.
+- Repository listing.
+- Application-level repository exceptions.
+- Duplicate registration protection.
+- Transaction-managed repository operations.
+- Repository service integration tests.

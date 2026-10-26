@@ -131,3 +131,24 @@ pytest tests/repositories -v
 ```
 
 The HTTP repository-registration API has not been implemented yet.
+
+## Repository service
+
+BuildScope now supports repository persistence through a repository store and application service.
+
+The service supports:
+
+- Registering repositories
+- Retrieving a repository by UUID
+- Listing registered repositories
+- Normalizing local paths
+- Rejecting duplicate paths
+- Application-level error handling
+
+Run the tests:
+
+```bash
+pytest tests/repositories -v
+```
+
+Repository path existence and Git validation are not yet implemented.
