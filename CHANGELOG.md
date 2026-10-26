@@ -43,3 +43,14 @@
 - Duplicate registration protection.
 - Transaction-managed repository operations.
 - Repository service integration tests.
+
+### Added
+
+- Repository registration REST API.
+- Repository list endpoint.
+- Repository lookup by UUID endpoint.
+- Filesystem existence validation.
+- Directory validation.
+- HTTP error mapping for invalid, duplicate, and missing repositories.
+- FastAPI database lifecycle integration.
+- Repository API integration tests.

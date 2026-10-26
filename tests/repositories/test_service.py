@@ -26,29 +26,33 @@ from buildscope.repositories import (
 
 @pytest.fixture
 def service(tmp_path: Path) -> Iterator[RepositoryService]:
+    """Create a repository service with an isolated SQLite database."""
     engine = create_sqlite_engine(tmp_path / "database.sqlite3")
 
     create_schema(engine)
 
-    yield RepositoryService(create_session_factory(engine))
-
-    engine.dispose()
+    try:
+        yield RepositoryService(create_session_factory(engine))
+    finally:
+        engine.dispose()
 
 
 def test_register_and_read(
     service: RepositoryService,
     tmp_path: Path,
 ) -> None:
+    """Register an existing directory and retrieve it by UUID."""
+    repository_path = tmp_path / "repo"
+    repository_path.mkdir()
+
     result = service.register_repository(
         name="  Example  ",
-        local_path=tmp_path / "repo",
+        local_path=repository_path,
     )
 
     assert isinstance(result.id, UUID)
     assert result.name == "Example"
-
-    assert result.local_path == str((tmp_path / "repo").resolve())
-
+    assert result.local_path == str(repository_path.resolve())
     assert result.created_at.utcoffset() == timedelta(0)
     assert result.language is None
 
@@ -59,14 +63,21 @@ def test_list_order_is_deterministic(
     service: RepositoryService,
     tmp_path: Path,
 ) -> None:
+    """Repositories should be listed alphabetically."""
+    z_path = tmp_path / "z"
+    a_path = tmp_path / "a"
+
+    z_path.mkdir()
+    a_path.mkdir()
+
     service.register_repository(
         name="Zulu",
-        local_path=tmp_path / "z",
+        local_path=z_path,
     )
 
     service.register_repository(
         name="Alpha",
-        local_path=tmp_path / "a",
+        local_path=a_path,
     )
 
     assert [item.name for item in service.list_repositories()] == ["Alpha", "Zulu"]
@@ -76,9 +87,16 @@ def test_duplicate_normalized_path(
     service: RepositoryService,
     tmp_path: Path,
 ) -> None:
+    """Equivalent paths must not register the same directory twice."""
+    repository_path = tmp_path / "repo"
+    repository_path.mkdir()
+
+    subdirectory = tmp_path / "sub"
+    subdirectory.mkdir()
+
     service.register_repository(
         name="First",
-        local_path=tmp_path / "repo",
+        local_path=repository_path,
     )
 
     with pytest.raises(
@@ -87,7 +105,7 @@ def test_duplicate_normalized_path(
     ):
         service.register_repository(
             name="Second",
-            local_path=tmp_path / "sub" / ".." / "repo",
+            local_path=subdirectory / ".." / "repo",
         )
 
     assert len(service.list_repositories()) == 1
@@ -95,13 +113,18 @@ def test_duplicate_normalized_path(
 
 @pytest.mark.parametrize(
     "name",
-    ["", "   ", "x" * 256],
+    [
+        "",
+        "   ",
+        "x" * 256,
+    ],
 )
 def test_invalid_name(
     service: RepositoryService,
     tmp_path: Path,
     name: str,
 ) -> None:
+    """Reject blank and oversized repository names."""
     with pytest.raises(InvalidRepositoryError):
         service.register_repository(
             name=name,
@@ -114,6 +137,7 @@ def test_invalid_name(
 def test_invalid_path(
     service: RepositoryService,
 ) -> None:
+    """Reject a blank repository path."""
     with pytest.raises(InvalidRepositoryError):
         service.register_repository(
             name="Name",
@@ -123,9 +147,51 @@ def test_invalid_path(
     assert service.list_repositories() == []
 
 
+def test_nonexistent_directory_is_rejected(
+    service: RepositoryService,
+    tmp_path: Path,
+) -> None:
+    """A registered path must exist on the filesystem."""
+    nonexistent_path = tmp_path / "does-not-exist"
+
+    assert not nonexistent_path.exists()
+
+    with pytest.raises(
+        InvalidRepositoryError,
+        match="must exist",
+    ):
+        service.register_repository(
+            name="Missing Project",
+            local_path=nonexistent_path,
+        )
+
+    assert service.list_repositories() == []
+
+
+def test_file_instead_of_directory_is_rejected(
+    service: RepositoryService,
+    tmp_path: Path,
+) -> None:
+    """A regular file cannot be registered as a repository directory."""
+    file_path = tmp_path / "project.txt"
+    file_path.write_text("test file", encoding="utf-8")
+
+    with pytest.raises(
+        InvalidRepositoryError,
+        match="directory",
+    ):
+        service.register_repository(
+            name="Invalid Project",
+            local_path=file_path,
+        )
+
+    assert service.list_repositories() == []
+
+
 def test_missing_id(
     service: RepositoryService,
 ) -> None:
+    """Retrieving an unknown repository must raise an application error."""
     with pytest.raises(RepositoryNotFoundError):
         service.get_repository(uuid4())
 
@@ -133,6 +199,7 @@ def test_missing_id(
 def test_store_read_and_write(
     tmp_path: Path,
 ) -> None:
+    """The persistence store should insert, retrieve, and list models."""
     engine = create_sqlite_engine(tmp_path / "store.db")
 
     create_schema(engine)
@@ -165,6 +232,7 @@ def test_store_read_and_write(
 def test_database_unique_constraint_still_applies(
     tmp_path: Path,
 ) -> None:
+    """The database must reject duplicate paths independently of the service."""
     engine = create_sqlite_engine(tmp_path / "unique.db")
 
     create_schema(engine)
@@ -202,9 +270,13 @@ def test_unique_violation_is_translated(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A duplicate insert must become DuplicateRepositoryError."""
+    repository_path = tmp_path / "repo"
+    repository_path.mkdir()
+
     service.register_repository(
         name="First",
-        local_path=tmp_path / "repo",
+        local_path=repository_path,
     )
 
     original_get = RepositoryStore.get_by_path
@@ -234,7 +306,8 @@ def test_unique_violation_is_translated(
     ):
         service.register_repository(
             name="Second",
-            local_path=tmp_path / "repo",
+            local_path=repository_path,
         )
 
     assert calls >= 2
+    assert len(service.list_repositories()) == 1

@@ -152,3 +152,33 @@ pytest tests/repositories -v
 ```
 
 Repository path existence and Git validation are not yet implemented.
+
+## Local repository API
+
+Start the API:
+
+```bash
+python -m uvicorn apps.api.main:app \
+    --host 127.0.0.1 \
+    --port 8000
+```
+
+Open API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Available endpoints:
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /repositories | Register a local directory |
+| GET | /repositories | List registered repositories |
+| GET | /repositories/{id} | Retrieve a repository by UUID |
+
+Repository paths must exist and point to directories.
+
+Duplicate paths are rejected.
+
+Git repository verification and project-type detection will be implemented later.

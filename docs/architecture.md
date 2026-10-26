@@ -84,3 +84,36 @@ The service returns immutable RepositoryDetails objects instead of exposing live
 Duplicate repository paths are rejected by both an application lookup and a database uniqueness constraint.
 
 HTTP route integration is not implemented yet.
+
+## Local repository registration API
+
+```text
+FastAPI Repository Routes
+          |
+          v
+RepositoryService
+          |
+          v
+Filesystem Validation
+          |
+          v
+RepositoryStore
+          |
+          v
+SQLAlchemy
+          |
+          v
+SQLite
+```
+
+Request schemas use Pydantic.
+
+The service owns application validation and transaction boundaries.
+
+The store owns persistence queries.
+
+FastAPI translates application errors into HTTP responses.
+
+The database engine is initialized during application startup and disposed during shutdown.
+
+Each service operation uses its own short-lived database session.

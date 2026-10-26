@@ -16,7 +16,7 @@ from buildscope.repositories.errors import (
     RepositoryNotFoundError,
 )
 from buildscope.repositories.models import Repository
-from buildscope.repositories.paths import normalize_local_path
+from buildscope.repositories.paths import validate_repository_path
 from buildscope.repositories.store import RepositoryStore
 
 
@@ -72,8 +72,7 @@ class RepositoryService:
 
         if not str(local_path).strip():
             raise InvalidRepositoryError("Repository path must not be blank.")
-
-        normalized_path = normalize_local_path(local_path)
+        normalized_path = validate_repository_path(local_path)
 
         try:
             with self._session_factory.begin() as session:
