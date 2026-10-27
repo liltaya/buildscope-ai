@@ -158,3 +158,35 @@ Evidence and warnings are returned by the detection operation but are not
 persisted in the repository table.
 
 Git metadata detection is outside the scope of this implementation.
+
+## Git inspection
+
+Git inspection is implemented in:
+
+`buildscope/git/inspector.py`
+
+The inspector is independent of HTTP and database code.
+
+Architecture:
+
+    FastAPI
+       |
+       v
+    RepositoryService
+       |
+       v
+    GitInspector
+       |
+       v
+    Local Git CLI
+
+RepositoryService retrieves the registered path and closes its SQLAlchemy
+session before starting Git inspection.
+
+Git commands use fixed argument arrays, no shell, and timeouts.
+
+The inspector supports ordinary Git branches, detached HEAD, repositories
+without commits, nested working-tree directories, and non-Git directories.
+
+The current branch and commit are not persisted because they are mutable
+working-tree state. Historical Git metadata will be modeled separately.

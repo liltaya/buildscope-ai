@@ -7,9 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from apps.api.dependencies import get_repository_service
 from apps.api.schemas.repositories import (
+    GitMetadataResponse,
     RepositoryCreate,
     RepositoryDetectionResponse,
     RepositoryResponse,
+)
+from buildscope.git import (
+    GitInspectionError,
+    GitMetadata,
+    GitTimeoutError,
+    GitUnavailableError,
 )
 from buildscope.repositories.errors import (
     DuplicateRepositoryError,
@@ -113,5 +120,48 @@ def detect_repository(
     except InvalidRepositoryError as exc:
         raise HTTPException(
             status_code=422,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/{repository_id}/git",
+    response_model=GitMetadataResponse,
+)
+def get_repository_git(
+    repository_id: UUID,
+    service: ServiceDependency,
+) -> GitMetadata:
+    """Inspect a registered repository's current Git state."""
+    try:
+        return service.inspect_repository_git(repository_id)
+
+    except RepositoryNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except InvalidRepositoryError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    except GitUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from exc
+
+    except GitTimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=str(exc),
+        ) from exc
+
+    except GitInspectionError as exc:
+        raise HTTPException(
+            status_code=500,
             detail=str(exc),
         ) from exc

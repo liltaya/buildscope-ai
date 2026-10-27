@@ -54,3 +54,17 @@ class RepositoryDetectionResponse(BaseModel):
 
     repository: RepositoryResponse
     detection: ProjectDetectionResponse
+
+
+class GitMetadataResponse(BaseModel):
+    """Current Git metadata for a registered repository."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    is_git_repository: bool
+    repository_root: str | None
+    branch: str | None
+    commit_hash: str | None
+    detached_head: bool
+    is_repository_root: bool
+    warnings: tuple[str, ...]

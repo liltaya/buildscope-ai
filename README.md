@@ -222,3 +222,29 @@ Detected metadata is saved to SQLite.
 Unsupported projects return null metadata and a descriptive warning.
 
 Detection is heuristic and does not verify that a build or test suite succeeds.
+
+## Git repository inspection
+
+BuildScope can inspect the current Git state of a registered local repository.
+
+Endpoint:
+
+`GET /repositories/{repository_id}/git`
+
+The response contains:
+
+- Whether the directory belongs to a Git working tree
+- The actual Git repository root
+- Current branch
+- Current commit hash
+- Detached HEAD status
+- Whether the registered directory is the Git root
+- Warnings for unsupported or incomplete states
+
+Git inspection uses read-only commands.
+
+No shell interpolation or GitPython dependency is required.
+
+Git metadata is read live and is not currently stored in SQLite.
+
+Repositories without commits and non-Git folders are handled gracefully.

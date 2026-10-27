@@ -10,10 +10,8 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 
 from buildscope.database.session import SessionFactory
-from buildscope.detection import (
-    ProjectDetection,
-    detect_project,
-)
+from buildscope.detection import ProjectDetection, detect_project
+from buildscope.git import GitMetadata, inspect_git_repository
 from buildscope.repositories.errors import (
     DuplicateRepositoryError,
     InvalidRepositoryError,
@@ -116,6 +114,23 @@ class RepositoryService:
                     ) from exc
 
             raise
+
+    def inspect_repository_git(
+        self,
+        repository_id: UUID,
+    ) -> GitMetadata:
+        """Return live Git metadata for a registered repository."""
+        with self._session_factory() as session:
+            store = RepositoryStore(session)
+
+            repository = store.get_by_id(repository_id)
+
+            if repository is None:
+                raise RepositoryNotFoundError(f"Repository not found: {repository_id}")
+
+            valid_path = validate_repository_path(repository.local_path)
+
+        return inspect_git_repository(Path(valid_path))
 
     def get_repository(
         self,

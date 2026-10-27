@@ -67,3 +67,16 @@
 - Persistence of detected repository metadata.
 - POST /repositories/{id}/detect endpoint.
 - Project detection unit and integration tests.
+
+### Added
+
+- Read-only GitInspector module.
+- Git repository and working-tree detection.
+- Git repository root resolution.
+- Current branch and commit inspection.
+- Detached HEAD detection.
+- Support for repositories without commits.
+- Graceful non-Git directory handling.
+- Git subprocess timeout and error handling.
+- GET /repositories/{id}/git endpoint.
+- Git inspection unit and integration tests.
