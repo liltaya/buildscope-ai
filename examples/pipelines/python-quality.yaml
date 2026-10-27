@@ -1,0 +1,13 @@
+name: python-quality-pipeline
+
+stages:
+  - name: lint
+    command: [ruff, check, .]
+
+  - name: types
+    command: [mypy, buildscope]
+
+  - name: tests
+    command: [pytest, -q]
+    depends_on: [lint, types]
+    timeout_seconds: 300

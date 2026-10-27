@@ -80,3 +80,15 @@
 - Git subprocess timeout and error handling.
 - GET /repositories/{id}/git endpoint.
 - Git inspection unit and integration tests.
+
+### Added
+
+- Pydantic pipeline configuration schema.
+- StageDefinition and PipelineDefinition models.
+- Safe YAML loading with PyYAML.
+- Command argument-array validation.
+- Timeout and retry limits.
+- Unique stage-name validation.
+- Pipeline configuration error handling.
+- Python and C++ sample pipeline files.
+- Pipeline schema and loader tests.

@@ -248,3 +248,44 @@ No shell interpolation or GitPython dependency is required.
 Git metadata is read live and is not currently stored in SQLite.
 
 Repositories without commits and non-Git folders are handled gracefully.
+
+## Pipeline configuration
+
+BuildScope supports declarative pipeline configurations in YAML.
+
+Each pipeline contains a name and one or more stages.
+
+Each stage can specify:
+
+- `name`
+- `command`
+- `depends_on`
+- `timeout_seconds`
+- `retry_count`
+
+Commands must be arrays of arguments.
+
+Example:
+
+```yaml
+name: python-quality
+
+stages:
+  - name: tests
+    command: [pytest, -q]
+    timeout_seconds: 300
+```
+
+Validate and load a pipeline:
+
+```python
+from buildscope.pipelines import load_pipeline_file
+
+pipeline = load_pipeline_file("examples/pipelines/python-quality.yaml")
+
+print(pipeline.name)
+```
+
+Pipeline loading does not execute commands.
+
+Dependency graph validation and actual execution are not implemented yet.

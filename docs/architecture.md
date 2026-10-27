@@ -190,3 +190,37 @@ without commits, nested working-tree directories, and non-Git directories.
 
 The current branch and commit are not persisted because they are mutable
 working-tree state. Historical Git metadata will be modeled separately.
+
+
+## Pipeline configuration architecture
+
+Pipeline configuration uses PyYAML and Pydantic.
+
+Architecture:
+
+    YAML configuration
+           |
+           v
+       Safe Loader
+           |
+           v
+     Pydantic Schema
+           |
+           v
+    PipelineDefinition
+           |
+           v
+     StageDefinition
+
+The loader is responsible for reading YAML safely.
+
+Pydantic models enforce field types, names, bounds, and uniqueness rules.
+
+Command definitions are stored as tuples of arguments rather than shell strings.
+
+Configurations do not execute commands during parsing.
+
+Dependency existence checks, cycle detection, and topological sorting will be
+implemented in the next stage.
+
+Pipeline persistence and execution will be implemented in later stages.

@@ -1,0 +1,17 @@
+name: cpp-quality-pipeline
+
+stages:
+  - name: configure
+    command: [cmake, -S, ., -B, build]
+    timeout_seconds: 120
+
+  - name: build
+    command: [cmake, --build, build]
+    depends_on: [configure]
+    timeout_seconds: 300
+
+  - name: tests
+    command: [ctest, --test-dir, build, --output-on-failure]
+    depends_on: [build]
+    retry_count: 1
+    timeout_seconds: 300
