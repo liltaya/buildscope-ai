@@ -1,4 +1,4 @@
-"""HTTP request and response schemas for repositories."""
+"""HTTP request and response schemas for repositories"""
 
 from datetime import datetime
 from uuid import UUID

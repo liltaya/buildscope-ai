@@ -1,4 +1,3 @@
-
 """Rule-based detection of Python and C++ projects."""
 
 from __future__ import annotations
@@ -38,20 +37,13 @@ def _candidate_directories(root: Path) -> list[Path]:
     directories = [root]
 
     for child in sorted(root.iterdir()):
-        if (
-            child.is_dir()
-            and not child.is_symlink()
-            and child.name not in _SKIP_DIRS
-        ):
+        if child.is_dir() and not child.is_symlink() and child.name not in _SKIP_DIRS:
             directories.append(child)
 
             for name in ("src", "tests"):
                 grandchild = child / name
 
-                if (
-                    grandchild.is_dir()
-                    and not grandchild.is_symlink()
-                ):
+                if grandchild.is_dir() and not grandchild.is_symlink():
                     directories.append(grandchild)
 
     return directories
@@ -70,9 +62,7 @@ def _read_config(
 
     try:
         if path.stat().st_size > _MAX_CONFIG_BYTES:
-            warnings.append(
-                f"Skipped oversized file: {relative_name}"
-            )
+            warnings.append(f"Skipped oversized file: {relative_name}")
             return None
 
         return path.read_text(
@@ -81,9 +71,7 @@ def _read_config(
         )
 
     except OSError as exc:
-        warnings.append(
-            f"Could not read {relative_name}: {exc}"
-        )
+        warnings.append(f"Could not read {relative_name}: {exc}")
         return None
 
 
@@ -121,9 +109,7 @@ def detect_project(directory: Path) -> ProjectDetection:
     root = directory.expanduser().resolve(strict=True)
 
     if not root.is_dir():
-        raise ValueError(
-            "Project path must be an existing directory."
-        )
+        raise ValueError("Project path must be an existing directory.")
 
     evidence: set[str] = set()
     warnings: list[str] = []
@@ -131,9 +117,7 @@ def detect_project(directory: Path) -> ProjectDetection:
     directories = _candidate_directories(root)
 
     def mark(path: Path) -> None:
-        evidence.add(
-            path.relative_to(root).as_posix()
-        )
+        evidence.add(path.relative_to(root).as_posix())
 
     # Detect Python project configuration.
     pyproject_path = root / "pyproject.toml"
@@ -152,10 +136,7 @@ def detect_project(directory: Path) -> ProjectDetection:
             pyproject = tomllib.loads(pyproject_text)
 
         except tomllib.TOMLDecodeError:
-            warnings.append(
-                "Invalid TOML in pyproject.toml; "
-                "project metadata not parsed."
-            )
+            warnings.append("Invalid TOML in pyproject.toml; project metadata not parsed.")
 
     python_markers = (
         "requirements.txt",
@@ -187,10 +168,7 @@ def detect_project(directory: Path) -> ProjectDetection:
             if child.suffix == ".py":
                 python_source = True
 
-                if (
-                    child.name.startswith("test_")
-                    or child.name.endswith("_test.py")
-                ):
+                if child.name.startswith("test_") or child.name.endswith("_test.py"):
                     test_py_files = True
                     mark(child)
 
@@ -204,10 +182,7 @@ def detect_project(directory: Path) -> ProjectDetection:
             ):
                 cpp_source = True
 
-                if (
-                    "test" in child.name.lower()
-                    or folder.name.lower() == "tests"
-                ):
+                if "test" in child.name.lower() or folder.name.lower() == "tests":
                     cpp_test_files.append(child)
 
     python_present |= python_source
@@ -230,10 +205,7 @@ def detect_project(directory: Path) -> ProjectDetection:
             )
 
             if content is not None:
-                lines = [
-                    line.split("#", 1)[0]
-                    for line in content.splitlines()
-                ]
+                lines = [line.split("#", 1)[0] for line in content.splitlines()]
 
                 cmake_sources.append("\n".join(lines))
 
@@ -260,17 +232,11 @@ def detect_project(directory: Path) -> ProjectDetection:
         "tests/conftest.py",
     )
 
-    has_pytest = test_py_files or any(
-        (root / name).is_file()
-        for name in pytest_markers
-    )
+    has_pytest = test_py_files or any((root / name).is_file() for name in pytest_markers)
 
     tool_settings = pyproject.get("tool")
 
-    if (
-        isinstance(tool_settings, dict)
-        and "pytest" in tool_settings
-    ):
+    if isinstance(tool_settings, dict) and "pytest" in tool_settings:
         has_pytest = True
 
     if has_pytest:
@@ -303,7 +269,8 @@ def detect_project(directory: Path) -> ProjectDetection:
                     root,
                     warnings,
                 )
-            ) is not None
+            )
+            is not None
         )
 
     # Detect CTest.
@@ -338,16 +305,10 @@ def detect_project(directory: Path) -> ProjectDetection:
     # Classify the build system.
     python_build = _python_backend(pyproject)
 
-    if (
-        python_build is None
-        and (root / "setup.py").is_file()
-    ):
+    if python_build is None and (root / "setup.py").is_file():
         python_build = "setuptools"
 
-    if (
-        python_build is None
-        and pyproject_path.is_file()
-    ):
+    if python_build is None and pyproject_path.is_file():
         python_build = "pyproject"
 
     # Explicitly allow None to satisfy mypy.
@@ -381,9 +342,7 @@ def detect_project(directory: Path) -> ProjectDetection:
         test_framework = None
 
     if language is None:
-        warnings.append(
-            "No supported Python/C++ project markers found."
-        )
+        warnings.append("No supported Python/C++ project markers found.")
 
     return ProjectDetection(
         language=language,

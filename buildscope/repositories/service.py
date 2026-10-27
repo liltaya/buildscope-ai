@@ -1,4 +1,4 @@
-"""Application use cases for registered local repositories."""
+"""Application use cases for registered local repositories"""
 
 from __future__ import annotations
 
@@ -66,6 +66,7 @@ class RepositoryService:
         self,
         session_factory: SessionFactory,
     ) -> None:
+        """Initialize the repository service."""
         self._session_factory = session_factory
 
     def register_repository(
@@ -114,23 +115,6 @@ class RepositoryService:
                     ) from exc
 
             raise
-
-    def inspect_repository_git(
-        self,
-        repository_id: UUID,
-    ) -> GitMetadata:
-        """Return live Git metadata for a registered repository."""
-        with self._session_factory() as session:
-            store = RepositoryStore(session)
-
-            repository = store.get_by_id(repository_id)
-
-            if repository is None:
-                raise RepositoryNotFoundError(f"Repository not found: {repository_id}")
-
-            valid_path = validate_repository_path(repository.local_path)
-
-        return inspect_git_repository(Path(valid_path))
 
     def get_repository(
         self,
@@ -186,3 +170,20 @@ class RepositoryService:
                 repository=RepositoryDetails.from_model(repository),
                 detection=detection,
             )
+
+    def inspect_repository_git(
+        self,
+        repository_id: UUID,
+    ) -> GitMetadata:
+        """Return live Git metadata for a registered repository."""
+        with self._session_factory() as session:
+            store = RepositoryStore(session)
+
+            repository = store.get_by_id(repository_id)
+
+            if repository is None:
+                raise RepositoryNotFoundError(f"Repository not found: {repository_id}")
+
+            valid_path = validate_repository_path(repository.local_path)
+
+        return inspect_git_repository(Path(valid_path))

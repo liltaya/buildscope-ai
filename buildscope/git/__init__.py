@@ -1,4 +1,4 @@
-"""Public Git inspection utilities"""
+"""Git inspection functionality"""
 
 from buildscope.git.inspector import (
     GitInspectionError,
