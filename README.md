@@ -182,3 +182,43 @@ Repository paths must exist and point to directories.
 Duplicate paths are rejected.
 
 Git repository verification and project-type detection will be implemented later.
+
+
+## Project detection
+
+BuildScope can identify project languages, build systems, and test frameworks.
+
+Current detection targets:
+
+- Python
+- C++
+- Mixed Python/C++ repositories
+- CMake
+- setuptools, Hatchling, Poetry, and Flit
+- pytest
+- CTest
+- GoogleTest
+
+Detection uses deterministic filesystem inspection.
+
+It does not execute project code.
+
+### Detect a registered repository
+
+Send:
+
+POST /repositories/{repository_id}/detect
+
+The response contains:
+
+- detected language
+- detected build system
+- detected test framework
+- supporting file evidence
+- detection warnings
+
+Detected metadata is saved to SQLite.
+
+Unsupported projects return null metadata and a descriptive warning.
+
+Detection is heuristic and does not verify that a build or test suite succeeds.

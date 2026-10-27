@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from apps.api.dependencies import get_repository_service
 from apps.api.schemas.repositories import (
     RepositoryCreate,
+    RepositoryDetectionResponse,
     RepositoryResponse,
 )
 from buildscope.repositories.errors import (
@@ -17,6 +18,7 @@ from buildscope.repositories.errors import (
 )
 from buildscope.repositories.service import (
     RepositoryDetails,
+    RepositoryDetectionDetails,
     RepositoryService,
 )
 
@@ -86,5 +88,30 @@ def get_repository(
     except RepositoryNotFoundError as exc:
         raise HTTPException(
             status_code=404,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/{repository_id}/detect",
+    response_model=RepositoryDetectionResponse,
+)
+def detect_repository(
+    repository_id: UUID,
+    service: ServiceDependency,
+) -> RepositoryDetectionDetails:
+    """Analyze and save registered repository metadata."""
+    try:
+        return service.detect_repository(repository_id)
+
+    except RepositoryNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except InvalidRepositoryError as exc:
+        raise HTTPException(
+            status_code=422,
             detail=str(exc),
         ) from exc

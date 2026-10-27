@@ -10,6 +10,10 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 
 from buildscope.database.session import SessionFactory
+from buildscope.detection import (
+    ProjectDetection,
+    detect_project,
+)
 from buildscope.repositories.errors import (
     DuplicateRepositoryError,
     InvalidRepositoryError,
@@ -49,8 +53,16 @@ class RepositoryDetails:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class RepositoryDetectionDetails:
+    """Return persisted metadata and detection evidence."""
+
+    repository: RepositoryDetails
+    detection: ProjectDetection
+
+
 class RepositoryService:
-    """Handle repository registration, retrieval, and listing."""
+    """Handle repository registration, retrieval, listing, and detection."""
 
     def __init__(
         self,
@@ -72,6 +84,7 @@ class RepositoryService:
 
         if not str(local_path).strip():
             raise InvalidRepositoryError("Repository path must not be blank.")
+
         normalized_path = validate_repository_path(local_path)
 
         try:
@@ -89,12 +102,11 @@ class RepositoryService:
                 )
 
                 store.add(repository)
+                session.flush()
 
                 return RepositoryDetails.from_model(repository)
 
         except IntegrityError as exc:
-            # If two registrations passed the pre-check,
-            # the database's UNIQUE constraint is the final guard.
             with self._session_factory() as session:
                 store = RepositoryStore(session)
 
@@ -128,3 +140,34 @@ class RepositoryService:
             repositories = store.list_all()
 
             return [RepositoryDetails.from_model(repository) for repository in repositories]
+
+    def detect_repository(
+        self,
+        repository_id: UUID,
+    ) -> RepositoryDetectionDetails:
+        """Detect and persist a repository's language and tools."""
+        with self._session_factory.begin() as session:
+            store = RepositoryStore(session)
+
+            repository = store.get_by_id(repository_id)
+
+            if repository is None:
+                raise RepositoryNotFoundError(f"Repository not found: {repository_id}")
+
+            valid_path = validate_repository_path(repository.local_path)
+
+            detection = detect_project(Path(valid_path))
+
+            store.update_detection(
+                repository,
+                language=detection.language,
+                build_system=detection.build_system,
+                test_framework=detection.test_framework,
+            )
+
+            session.flush()
+
+            return RepositoryDetectionDetails(
+                repository=RepositoryDetails.from_model(repository),
+                detection=detection,
+            )

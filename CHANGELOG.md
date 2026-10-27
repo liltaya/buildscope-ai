@@ -54,3 +54,16 @@
 - HTTP error mapping for invalid, duplicate, and missing repositories.
 - FastAPI database lifecycle integration.
 - Repository API integration tests.
+
+### Added
+
+- Rule-based Python project detection.
+- C++ source and CMake detection.
+- pytest, CTest, and GoogleTest detection.
+- Python build-backend detection.
+- Mixed-language project classification.
+- Detection evidence and warnings.
+- Repository detection service operation.
+- Persistence of detected repository metadata.
+- POST /repositories/{id}/detect endpoint.
+- Project detection unit and integration tests.

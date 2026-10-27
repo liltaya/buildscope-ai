@@ -117,3 +117,44 @@ FastAPI translates application errors into HTTP responses.
 The database engine is initialized during application startup and disposed during shutdown.
 
 Each service operation uses its own short-lived database session.
+
+## Project detection
+
+The project detector is implemented in:
+
+`buildscope/detection/detector.py`
+
+It is independent of FastAPI and SQLAlchemy.
+
+Architecture:
+
+Registered Repository
+        |
+        v
+RepositoryService
+        |
+        v
+ProjectDetector
+        |
+        v
+ProjectDetection
+        |
+        v
+RepositoryStore
+        |
+        v
+SQLite
+
+Detection is deterministic and rule-based.
+
+The detector analyzes configuration and source files without executing them.
+
+The supported search depth is limited to avoid recursively scanning arbitrary
+dependency and build directories.
+
+The service persists the detected language, build system, and test framework.
+
+Evidence and warnings are returned by the detection operation but are not
+persisted in the repository table.
+
+Git metadata detection is outside the scope of this implementation.

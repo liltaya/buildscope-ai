@@ -43,3 +43,18 @@ class RepositoryStore:
         statement = select(Repository).order_by(Repository.name, Repository.id)
 
         return list(self._session.scalars(statement).all())
+
+    def update_detection(
+        self,
+        repository: Repository,
+        *,
+        language: str | None,
+        build_system: str | None,
+        test_framework: str | None,
+    ) -> None:
+        """Update the detected project metadata."""
+        repository.language = language
+        repository.build_system = build_system
+        repository.test_framework = test_framework
+
+        self._session.flush()

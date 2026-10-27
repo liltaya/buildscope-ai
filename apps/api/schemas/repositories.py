@@ -32,3 +32,25 @@ class RepositoryResponse(BaseModel):
     build_system: str | None
     test_framework: str | None
     created_at: datetime
+
+
+class ProjectDetectionResponse(BaseModel):
+    """Detected language, tools, and supporting evidence."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    language: str | None
+    build_system: str | None
+    test_framework: str | None
+
+    evidence: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+
+class RepositoryDetectionResponse(BaseModel):
+    """Response returned after repository detection."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    repository: RepositoryResponse
+    detection: ProjectDetectionResponse
