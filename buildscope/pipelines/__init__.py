@@ -1,4 +1,4 @@
-"""Pipeline configuration, validation, and dependency planning"""
+"""Pipeline configuration, validation, planning, and persistence."""
 
 from buildscope.pipelines.graph import (
     PipelineGraphError,
@@ -15,12 +15,22 @@ from buildscope.pipelines.schema import (
     PipelineDefinition,
     StageDefinition,
 )
+from buildscope.pipelines.service import (
+    PipelineNotFoundError,
+    PipelineService,
+    PipelineVersion,
+    PipelineVersionConflictError,
+)
 
 __all__ = [
     "PipelineConfigError",
     "PipelineDefinition",
     "PipelineGraphError",
+    "PipelineNotFoundError",
     "PipelinePlan",
+    "PipelineService",
+    "PipelineVersion",
+    "PipelineVersionConflictError",
     "StageDefinition",
     "build_pipeline_plan",
     "load_pipeline_file",

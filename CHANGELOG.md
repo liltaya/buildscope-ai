@@ -103,3 +103,16 @@
 - PipelinePlan model.
 - load_pipeline_plan() entry point.
 - Pipeline graph unit and integration tests.
+
+### Added
+
+- PipelineDefinitionRecord SQLAlchemy model.
+- PipelineStore and PipelineService.
+- Pipeline version numbering.
+- Persistent JSON pipeline configurations.
+- Pipeline version history retrieval.
+- Pipeline foreign-key and uniqueness constraints.
+- Alembic migrations.
+- Existing database baseline migration.
+- Pipeline persistence REST endpoints.
+- Pipeline persistence and API integration tests.

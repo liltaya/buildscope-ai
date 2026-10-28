@@ -307,9 +307,7 @@ Example:
 ```python
 from buildscope.pipelines import load_pipeline_plan
 
-plan = load_pipeline_plan(
-    "examples/pipelines/cpp-quality.yaml"
-)
+plan = load_pipeline_plan("examples/pipelines/cpp-quality.yaml")
 
 print(plan.stage_names)
 ```
@@ -324,3 +322,43 @@ The planner does not execute commands.
 
 A valid dependency graph is required before pipelines can be persisted
 or executed in later milestones.
+
+
+## Versioned pipeline definitions
+
+BuildScope supports persistent, versioned pipeline configurations.
+
+Each pipeline version belongs to one registered repository.
+
+The configuration is validated using Pydantic and DAG checks before storage.
+
+Saving a pipeline creates a new immutable-by-service version.
+
+Previous versions remain accessible.
+
+### API
+
+- POST /repositories/{id}/pipelines
+- GET /repositories/{id}/pipelines/{name}/versions
+- GET /repositories/{id}/pipelines/{name}/versions/{version}
+- GET /repositories/{id}/pipelines/{name}/latest
+
+### Database migrations
+
+BuildScope uses Alembic for schema migrations.
+
+Apply migrations:
+
+```bash
+python -m alembic -c alembic.ini upgrade head
+```
+
+Check revision:
+
+```bash
+python -m alembic -c alembic.ini current
+```
+
+Pipeline configurations are stored in SQLite as JSON.
+
+Pipeline execution is not implemented yet.
