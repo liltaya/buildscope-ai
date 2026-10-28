@@ -273,3 +273,51 @@ The planner does not start subprocesses or perform database writes.
 
 Scheduling, parallel execution, retries, and failure propagation
 are separate responsibilities implemented later.
+
+
+## Pipeline persistence and versioning
+
+Pipeline definitions are persisted through SQLAlchemy.
+
+Architecture:
+
+    Pipeline YAML
+          |
+          v
+    Pydantic Schema
+          |
+          v
+    DAG Validation
+          |
+          v
+    PipelineService
+          |
+          v
+    PipelineStore
+          |
+          v
+    SQLite
+
+PipelineDefinitionRecord stores:
+
+- UUID identifier
+- parent repository UUID
+- pipeline name
+- version number
+- validated configuration JSON
+- UTC creation timestamp
+
+The unique constraint on repository_id, name, and version prevents duplicate
+version numbers within the same repository pipeline.
+
+The service does not modify previous versions.
+
+Schema migrations are managed through Alembic.
+
+The repository baseline migration recognizes previously created Part 6
+databases so existing registered repositories can be preserved.
+
+The current implementation does not automatically retry concurrent version
+allocation conflicts.
+
+Pipeline execution remains outside this component.
