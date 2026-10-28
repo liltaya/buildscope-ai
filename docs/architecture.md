@@ -224,3 +224,52 @@ Dependency existence checks, cycle detection, and topological sorting will be
 implemented in the next stage.
 
 Pipeline persistence and execution will be implemented in later stages.
+
+## Pipeline dependency graph
+
+Pipeline planning extends the YAML configuration system.
+
+Architecture:
+
+    YAML
+      |
+      v
+    Safe Loader
+      |
+      v
+    Pydantic Schema
+      |
+      v
+    PipelineDefinition
+      |
+      v
+    Dependency Graph Validation
+      |
+      v
+    Topological Sorting
+      |
+      v
+    PipelinePlan
+
+The graph planner is implemented in:
+
+`buildscope/pipelines/graph.py`
+
+It performs:
+
+- Unknown dependency detection
+- Self-dependency rejection
+- Cycle detection using depth-first search
+- Deterministic topological sorting using Kahn's algorithm
+
+Dependencies are represented as directed edges from prerequisites to
+dependent stages.
+
+The planner returns stage objects in a valid dependency order.
+
+The original PipelineDefinition remains unchanged.
+
+The planner does not start subprocesses or perform database writes.
+
+Scheduling, parallel execution, retries, and failure propagation
+are separate responsibilities implemented later.

@@ -92,3 +92,14 @@
 - Pipeline configuration error handling.
 - Python and C++ sample pipeline files.
 - Pipeline schema and loader tests.
+
+### Added
+
+- Pipeline dependency graph validation.
+- Missing-dependency detection.
+- Self-dependency validation.
+- Dependency cycle detection with diagnostic paths.
+- Deterministic topological sorting.
+- PipelinePlan model.
+- load_pipeline_plan() entry point.
+- Pipeline graph unit and integration tests.
