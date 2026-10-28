@@ -289,3 +289,38 @@ print(pipeline.name)
 Pipeline loading does not execute commands.
 
 Dependency graph validation and actual execution are not implemented yet.
+
+## Pipeline dependency validation
+
+BuildScope validates pipeline stage dependencies before execution.
+
+It supports:
+
+- Checking referenced stage names
+- Rejecting self-dependencies
+- Detecting dependency cycles
+- Topological sorting
+- Deterministic ordering of independent stages
+
+Example:
+
+```python
+from buildscope.pipelines import load_pipeline_plan
+
+plan = load_pipeline_plan(
+    "examples/pipelines/cpp-quality.yaml"
+)
+
+print(plan.stage_names)
+```
+
+Output:
+
+```text
+('configure', 'build', 'tests')
+```
+
+The planner does not execute commands.
+
+A valid dependency graph is required before pipelines can be persisted
+or executed in later milestones.
