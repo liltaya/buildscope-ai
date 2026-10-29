@@ -142,3 +142,19 @@
 - Partial log preservation on timeout and cancellation.
 - Detection and cleanup of lingering output pipes.
 - Process lifecycle and cancellation tests.
+
+### Added
+
+- Pipeline run state machine.
+- PipelineRunRecord SQLAlchemy model.
+- StageRunRecord SQLAlchemy model.
+- Alembic migration for execution history.
+- Sequential PipelineRunner.
+- DAG-ordered stage execution.
+- Persistent pipeline and stage statuses.
+- Dependency-blocking behavior.
+- Timeout and cancellation status integration.
+- Execution log-path persistence.
+- Historical pipeline-run retrieval.
+- Explicit approval requirement for local execution.
+- Pipeline-run integration tests.

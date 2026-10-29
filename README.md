@@ -448,3 +448,42 @@ Log files are retained until manually removed. Automatic cleanup and
 retention policies are not implemented yet.
 
 The executor currently does not expose a remote HTTP execution endpoint.
+
+
+## Pipeline execution
+
+BuildScope supports sequential execution of saved pipeline versions.
+
+Execution uses:
+
+- Validated pipeline definitions
+- DAG-based execution ordering
+- Explicit execution approval
+- Local subprocess execution
+- Persistent pipeline and stage statuses
+- Exit codes and UTC timestamps
+- Bounded stdout and stderr logs
+- Timeout and cancellation reporting
+- Basic dependency-failure blocking
+
+Pipeline runs are stored in the `pipeline_runs` table.
+
+Individual stages are stored in `stage_runs`.
+
+A pipeline run references a specific immutable pipeline-definition version.
+
+The runner can retrieve historical execution results by UUID.
+
+### Limitations
+
+The current runner executes stages sequentially.
+
+Automatic retries, worker scheduling, crash recovery, and parallel execution
+are not yet implemented.
+
+A machine crash can leave a previously running stage marked RUNNING until
+a future recovery mechanism reconciles its state.
+
+Executing pipeline commands requires explicit local approval.
+
+No unauthenticated HTTP execution endpoint is provided.
