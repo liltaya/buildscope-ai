@@ -1,6 +1,7 @@
-"""Standalone direct subprocess execution"""
+"""Standalone local subprocess execution"""
 
 from buildscope.execution.executor import (
+    ExecutionCancelledError,
     ExecutionError,
     ExecutionLaunchError,
     ExecutionRequest,
@@ -11,6 +12,7 @@ from buildscope.execution.executor import (
 )
 
 __all__ = [
+    "ExecutionCancelledError",
     "ExecutionError",
     "ExecutionLaunchError",
     "ExecutionRequest",

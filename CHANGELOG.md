@@ -130,3 +130,15 @@
 - Executable launch error handling.
 - Basic subprocess timeout handling.
 - 24 automated executor tests.
+
+### Added
+
+- POSIX process-group execution.
+- Graceful SIGTERM and SIGKILL escalation.
+- Running-command cancellation through threading.Event.
+- Bounded stdout and stderr capture.
+- Persistent per-run log files.
+- Output truncation reporting.
+- Partial log preservation on timeout and cancellation.
+- Detection and cleanup of lingering output pipes.
+- Process lifecycle and cancellation tests.
