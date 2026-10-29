@@ -362,3 +362,53 @@ python -m alembic -c alembic.ini current
 Pipeline configurations are stored in SQLite as JSON.
 
 Pipeline execution is not implemented yet.
+
+
+## Local command execution
+
+BuildScope provides a standalone executor for explicitly approved local commands.
+
+Features:
+
+- Commands represented as argument arrays
+- No shell interpolation
+- Repository-relative working directories
+- Working-directory containment checks
+- stdout and stderr capture
+- Exit code reporting
+- UTC start and finish timestamps
+- Execution duration measurement
+- Basic subprocess timeouts
+- Structured execution exceptions
+
+Example:
+
+```python
+from pathlib import Path
+from buildscope.execution import ExecutionRequest, execute_command
+
+request = ExecutionRequest(
+    command=("pytest", "-q"),
+    repository_root=Path.cwd(),
+    timeout_seconds=300,
+)
+
+result = execute_command(request)
+
+print(result.returncode)
+print(result.stdout)
+```
+
+### Security limitations
+
+The executor is not a sandbox.
+
+A command can still execute arbitrary program behavior, access files outside its
+working directory, spawn child processes, or produce excessive output.
+
+Commands must be explicitly approved before execution.
+
+Pipeline execution is not yet exposed through the HTTP API.
+
+Process-tree cancellation, output limits, and durable log storage are planned
+for later stages.

@@ -116,3 +116,17 @@
 - Existing database baseline migration.
 - Pipeline persistence REST endpoints.
 - Pipeline persistence and API integration tests.
+
+### Added
+
+- ExecutionRequest and ExecutionResult models.
+- Synchronous local command executor.
+- Direct subprocess execution without shell interpolation.
+- Repository working-directory validation.
+- Working-directory traversal and symlink escape rejection.
+- stdout and stderr capture.
+- Exit code and execution duration reporting.
+- UTC execution timestamps.
+- Executable launch error handling.
+- Basic subprocess timeout handling.
+- 24 automated executor tests.
