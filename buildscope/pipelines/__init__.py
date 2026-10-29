@@ -11,6 +11,14 @@ from buildscope.pipelines.loader import (
     load_pipeline_file,
     parse_pipeline_yaml,
 )
+from buildscope.pipelines.runner import (
+    ExecutionApprovalRequiredError,
+    PipelineRunDetails,
+    PipelineRunner,
+    PipelineRunnerError,
+    PipelineRunNotFoundError,
+    StageRunDetails,
+)
 from buildscope.pipelines.schema import (
     PipelineDefinition,
     StageDefinition,
@@ -20,6 +28,11 @@ from buildscope.pipelines.service import (
     PipelineService,
     PipelineVersion,
     PipelineVersionConflictError,
+)
+from buildscope.pipelines.state import (
+    InvalidRunTransitionError,
+    RunStatus,
+    assert_transition,
 )
 
 __all__ = [
@@ -36,4 +49,13 @@ __all__ = [
     "load_pipeline_file",
     "load_pipeline_plan",
     "parse_pipeline_yaml",
+    "ExecutionApprovalRequiredError",
+    "InvalidRunTransitionError",
+    "PipelineRunDetails",
+    "PipelineRunNotFoundError",
+    "PipelineRunner",
+    "PipelineRunnerError",
+    "RunStatus",
+    "StageRunDetails",
+    "assert_transition",
 ]

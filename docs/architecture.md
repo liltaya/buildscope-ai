@@ -403,3 +403,62 @@ This component is not a sandbox and cannot guarantee control of descendants
 that escape the created process group.
 
 Pipeline-level scheduling and state transitions remain separate concerns.
+
+
+## Pipeline execution engine
+
+PipelineRunner connects versioned pipeline configuration to local process execution.
+
+Architecture:
+
+    PipelineService
+          |
+          v
+    PipelineDefinition
+          |
+          v
+    DAG Planner
+          |
+          v
+    PipelineRunner
+          |
+          +-- State Machine
+          |
+          +-- Local Executor
+          |
+          +-- PipelineRunRecord
+          |
+          +-- StageRunRecord
+          |
+          v
+    SQLite Execution History
+
+Pipeline state transitions are explicitly validated.
+
+Each stage starts in QUEUED.
+
+Before execution, a stage transitions to RUNNING.
+
+Terminal states include:
+
+- SUCCEEDED
+- FAILED
+- TIMED_OUT
+- CANCELLED
+- BLOCKED
+
+Stages with failed prerequisites are blocked rather than executed.
+
+Independent stages may continue executing after another stage fails.
+
+Each state transition is persisted in a short database transaction.
+
+Run history references the exact saved pipeline-definition version.
+
+The executor stores bounded stdout and stderr logs outside SQLite.
+Database records contain paths to those log files.
+
+The current implementation uses synchronous sequential execution.
+
+Automatic retries, distributed workers, scheduling, and crash recovery
+will be implemented later.
