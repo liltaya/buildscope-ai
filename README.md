@@ -412,3 +412,39 @@ Pipeline execution is not yet exposed through the HTTP API.
 
 Process-tree cancellation, output limits, and durable log storage are planned
 for later stages.
+
+
+## Process lifecycle and logging
+
+BuildScope supports local subprocess execution with:
+
+- Explicit argument arrays
+- Process-group creation on POSIX
+- Cooperative cancellation through threading.Event
+- Timeouts followed by process-group termination
+- SIGTERM and SIGKILL escalation
+- Bounded stdout and stderr capture
+- Separate persistent stdout and stderr logs
+- Unique log directories per execution
+- Truncation indicators
+- UTC execution timestamps
+
+Default logs are stored in:
+
+`data/execution-logs/`
+
+Each stream retains at most 1 MiB by default.
+
+The output limit is configurable to a maximum of 10 MiB per stream.
+
+### Limitations
+
+The executor is not a sandbox.
+
+Programs can access files outside the working directory and may create
+child processes outside the executor's process group.
+
+Log files are retained until manually removed. Automatic cleanup and
+retention policies are not implemented yet.
+
+The executor currently does not expose a remote HTTP execution endpoint.

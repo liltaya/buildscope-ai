@@ -1,4 +1,4 @@
-"""Integration tests for the direct subprocess executor"""
+"""Integration tests for the direct subprocess executor."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import subprocess
 import sys
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -229,7 +230,7 @@ def test_reject_outside_symlink(tmp_path: Path) -> None:
 def test_missing_executable(tmp_path: Path) -> None:
     with pytest.raises(
         ExecutionLaunchError,
-        match="Executable not found",
+        match="Could not start",
     ):
         execute_command(
             request(
@@ -255,65 +256,69 @@ def test_timeout(tmp_path: Path) -> None:
 
 
 def test_timeout_partial_output_bytes(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    def fake_run(
-        *args: object,
-        **kwargs: object,
-    ) -> None:
-        raise subprocess.TimeoutExpired(
-            cmd=["fake"],
-            timeout=1,
-            output=b"partial",
-            stderr=b"error",
-        )
-
-    monkeypatch.setattr(
-        "buildscope.execution.executor.subprocess.run",
-        fake_run,
-    )
-
     with pytest.raises(ExecutionTimeoutError) as info:
         execute_command(
             request(
                 tmp_path,
                 sys.executable,
+                "-c",
+                "import os,time; os.write(1,b'partial'); os.write(2,b'error'); time.sleep(20)",
                 timeout_seconds=1,
             )
         )
 
     assert info.value.stdout == "partial"
     assert info.value.stderr == "error"
+    assert info.value.stdout_path.read_bytes() == b"partial"
+    assert info.value.stderr_path.read_bytes() == b"error"
 
 
 def test_no_shell_or_stdin(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    observed: dict[str, object] = {}
+    original_popen = subprocess.Popen
 
-    def fake_run(
-        *args: object,
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        observed.update(kwargs)
-
-        return subprocess.CompletedProcess(
-            args=["fake"],
-            returncode=0,
-            stdout="",
-            stderr="",
+    with patch(
+        "buildscope.execution.executor.subprocess.Popen",
+        wraps=original_popen,
+    ) as spy:
+        execute_command(
+            request(
+                tmp_path,
+                sys.executable,
+                "-c",
+                "print(1)",
+            )
         )
 
-    monkeypatch.setattr(
-        "buildscope.execution.executor.subprocess.run",
-        fake_run,
+    assert spy.call_args is not None
+
+    arguments = spy.call_args.kwargs
+
+    assert arguments["shell"] is False
+    assert arguments["stdin"] == subprocess.DEVNULL
+    assert arguments["start_new_session"] is True
+    assert arguments["stdout"] == subprocess.PIPE
+    assert arguments["stderr"] == subprocess.PIPE
+
+
+def test_command_runs_without_shell(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "shell-executed"
+
+    result = execute_command(
+        request(
+            tmp_path,
+            sys.executable,
+            "-c",
+            "import sys; print(sys.argv[1])",
+            f"; touch {marker}",
+        )
     )
 
-    execute_command(request(tmp_path, sys.executable))
-
-    assert observed["shell"] is False
-    assert observed["stdin"] == subprocess.DEVNULL
-    assert observed["check"] is False
-    assert observed["capture_output"] is True
+    assert result.succeeded
+    assert result.stdout.strip() == f"; touch {marker}"
+    assert not marker.exists()

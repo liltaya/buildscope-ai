@@ -372,3 +372,34 @@ executed.
 
 Process groups, cancellation, bounded output, and durable logs will be added
 in the next part.
+
+
+## Process lifecycle management
+
+BuildScope uses subprocess.Popen to launch direct child processes.
+
+Each command starts in a new POSIX session and process group.
+
+The executor monitors both stdout and stderr using selectors.
+
+Output is continuously drained from pipes to prevent blocking.
+
+Each stream has a configurable byte limit.
+
+Captured output is written to unique per-execution log files.
+
+Cancellation uses a threading.Event.
+
+Timeout and cancellation trigger process-group SIGTERM followed by SIGKILL
+after a short grace period.
+
+The executor retains partial output and log file paths when interrupted.
+
+ExecutionResult describes completed commands.
+
+ExecutionTimeoutError and ExecutionCancelledError describe interrupted runs.
+
+This component is not a sandbox and cannot guarantee control of descendants
+that escape the created process group.
+
+Pipeline-level scheduling and state transitions remain separate concerns.
