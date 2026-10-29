@@ -321,3 +321,54 @@ The current implementation does not automatically retry concurrent version
 allocation conflicts.
 
 Pipeline execution remains outside this component.
+
+
+## Local subprocess execution
+
+BuildScope's first execution layer is implemented in:
+
+`buildscope/execution/executor.py`
+
+Architecture:
+
+    ExecutionRequest
+           |
+           v
+    Request Validation
+           |
+           v
+    Working Directory Validation
+           |
+           v
+    subprocess.run()
+           |
+           v
+    ExecutionResult
+
+Execution requests contain:
+
+- Command arguments
+- Repository root
+- Relative working directory
+- Timeout
+
+The executor returns:
+
+- Exit code
+- stdout
+- stderr
+- UTC start and finish timestamps
+- Duration
+- Success indicator
+
+Commands are invoked directly without a shell.
+
+The executor does not access SQLite or FastAPI.
+
+The current executor is synchronous and captures output in memory.
+
+This is not an operating-system sandbox. No untrusted pipeline is automatically
+executed.
+
+Process groups, cancellation, bounded output, and durable logs will be added
+in the next part.
