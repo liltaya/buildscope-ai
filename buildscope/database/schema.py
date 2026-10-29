@@ -13,9 +13,7 @@ def create_schema(engine: Engine) -> None:
     """Create only the original repository table for legacy tests."""
     from buildscope.repositories.models import Repository
 
-    repository_table = Base.metadata.tables[
-        Repository.__tablename__
-    ]
+    repository_table = Base.metadata.tables[Repository.__tablename__]
 
     assert isinstance(repository_table, Table)
 
