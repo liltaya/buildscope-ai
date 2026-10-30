@@ -533,3 +533,36 @@ Different repository jobs can execute concurrently.
 Jobs link to PipelineRunRecord when execution completes.
 
 Crash recovery, worker leases, and heartbeats are deferred to Part 19.
+
+
+## Worker leasing and recovery
+
+WorkerQueue now manages durable leases and worker heartbeats.
+
+Each claim receives a unique token and lease expiration.
+
+Heartbeats update the worker's last-seen timestamp and renew its
+active job lease in a database transaction.
+
+The worker heartbeat thread runs independently from PipelineRunner.
+
+WorkerQueue.complete validates the claim token and the current lease.
+
+Recovery checks lease expiration, heartbeat staleness and local
+process liveness before declaring work abandoned.
+
+Linked RUNNING pipeline, stage and attempt records are reconciled
+to terminal states.
+
+Queued stages become BLOCKED.
+
+Previously completed stage and attempt records are not overwritten.
+
+Recovered jobs are never automatically requeued.
+
+The queue continues using atomic SQLite claiming and per-repository
+serialization for active jobs.
+
+Known limitations include PID reuse, process descendants surviving
+worker death, and the narrow crash window before a newly created
+pipeline run is linked to its worker job.

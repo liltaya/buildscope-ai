@@ -583,3 +583,55 @@ Only trusted local users should be allowed to enqueue work or modify
 the SQLite database.
 
 A crashed worker may leave its job in RUNNING.
+
+
+## Worker heartbeats and leases
+
+BuildScope supports renewable ownership leases for local Python workers.
+
+Each worker registers:
+
+- Worker identifier
+- Process ID
+- Startup timestamp
+- Last heartbeat timestamp
+- Active or stopped status
+
+Each claimed job records:
+
+- Worker identifier
+- Unique claim token
+- Lease expiration timestamp
+
+Workers periodically extend their leases using a separate heartbeat thread.
+
+A worker may finalize its job only while the worker ID, claim token,
+job state and lease are valid.
+
+### Recovery
+
+The local recovery command is:
+
+    python -m buildscope.workers.cli \
+      --database data/buildscope.db recover --stale-seconds 30
+
+Recovery requires an expired lease, stale heartbeat and a dead local
+worker PID, or applicable legacy job conditions.
+
+Abandoned jobs are not automatically replayed.
+
+Incomplete linked pipeline runs, stages and attempts are reconciled.
+
+Completed historical attempts retain their statuses and logs.
+
+### Limitations
+
+PID checks are best-effort.
+
+A crashed worker may leave subprocess descendants running.
+
+Verify those processes have stopped before allowing further jobs
+against the recovered repository.
+
+This is local process coordination, not distributed consensus or
+an operating-system sandbox.
