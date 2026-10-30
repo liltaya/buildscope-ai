@@ -186,3 +186,16 @@
 - Spawn-based multiprocessing launcher.
 - Job-to-pipeline-run linkage.
 - Worker queue integration tests.
+
+### Added
+
+- WorkerHeartbeatRecord database model.
+- Claim tokens and renewable job leases.
+- Alembic migration 0006.
+- Independent worker heartbeat thread.
+- Lease ownership validation.
+- Early pipeline-run linkage.
+- Stale worker detection.
+- Conservative abandoned-job recovery.
+- Reconciliation of incomplete pipeline execution records.
+- Heartbeat, lease, and crash-recovery tests.

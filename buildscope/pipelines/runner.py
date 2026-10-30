@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -223,12 +224,8 @@ class PipelineRunner:
             else:
                 record.finished_at = datetime.now(UTC)
                 record.exit_code = returncode
-                record.stdout_path = (
-                    str(stdout_path) if stdout_path is not None else None
-                )
-                record.stderr_path = (
-                    str(stderr_path) if stderr_path is not None else None
-                )
+                record.stdout_path = str(stdout_path) if stdout_path is not None else None
+                record.stderr_path = str(stderr_path) if stderr_path is not None else None
                 record.error_message = error_message
 
     def _start_attempt(
@@ -255,9 +252,7 @@ class PipelineRunner:
             )
 
             if attempt_record is None:
-                raise PipelineRunnerError(
-                    f"Missing attempt record: {attempt_id}"
-                )
+                raise PipelineRunnerError(f"Missing attempt record: {attempt_id}")
 
             assert_transition(
                 RunStatus(attempt_record.status),
@@ -288,9 +283,7 @@ class PipelineRunner:
             )
 
             if attempt is None:
-                raise PipelineRunnerError(
-                    f"Missing attempt record: {attempt_id}"
-                )
+                raise PipelineRunnerError(f"Missing attempt record: {attempt_id}")
 
             assert_transition(
                 RunStatus(attempt.status),
@@ -300,12 +293,8 @@ class PipelineRunner:
             attempt.status = status.value
             attempt.finished_at = datetime.now(UTC)
             attempt.exit_code = returncode
-            attempt.stdout_path = (
-                str(stdout_path) if stdout_path is not None else None
-            )
-            attempt.stderr_path = (
-                str(stderr_path) if stderr_path is not None else None
-            )
+            attempt.stdout_path = str(stdout_path) if stdout_path is not None else None
+            attempt.stderr_path = str(stderr_path) if stderr_path is not None else None
             attempt.error_message = error_message
 
             # An intermediate failed attempt does not finish the stage.
@@ -316,9 +305,7 @@ class PipelineRunner:
                 )
 
                 if stage is None:
-                    raise PipelineRunnerError(
-                        f"Missing stage record: {attempt.stage_run_id}"
-                    )
+                    raise PipelineRunnerError(f"Missing stage record: {attempt.stage_run_id}")
 
                 assert_transition(
                     RunStatus(stage.status),
@@ -391,15 +378,9 @@ class PipelineRunner:
                 return RunStatus.CANCELLED
 
             except ExecutionTimeoutError as exc:
-                interrupted = (
-                    cancel_event is not None
-                    and cancel_event.is_set()
-                )
+                interrupted = cancel_event is not None and cancel_event.is_set()
 
-                should_retry = (
-                    number < total_attempts
-                    and not interrupted
-                )
+                should_retry = number < total_attempts and not interrupted
 
                 self._complete_attempt(
                     attempt_id,
@@ -407,11 +388,7 @@ class PipelineRunner:
                     stage_status=(
                         None
                         if should_retry
-                        else (
-                            RunStatus.CANCELLED
-                            if interrupted
-                            else RunStatus.TIMED_OUT
-                        )
+                        else (RunStatus.CANCELLED if interrupted else RunStatus.TIMED_OUT)
                     ),
                     stdout_path=exc.stdout_path,
                     stderr_path=exc.stderr_path,
@@ -421,11 +398,7 @@ class PipelineRunner:
                 if should_retry:
                     continue
 
-                return (
-                    RunStatus.CANCELLED
-                    if interrupted
-                    else RunStatus.TIMED_OUT
-                )
+                return RunStatus.CANCELLED if interrupted else RunStatus.TIMED_OUT
 
             except ExecutionError as exc:
                 # Infrastructure failures are not retried.
@@ -446,44 +419,25 @@ class PipelineRunner:
                     error_message=f"Unexpected runner error: {exc}",
                 )
 
-                raise PipelineRunnerError(
-                    f"Unexpected failure executing stage: {exc}"
-                ) from exc
+                raise PipelineRunnerError(f"Unexpected failure executing stage: {exc}") from exc
 
             else:
                 succeeded = result.succeeded
 
-                interrupted = (
-                    cancel_event is not None
-                    and cancel_event.is_set()
-                )
+                interrupted = cancel_event is not None and cancel_event.is_set()
 
-                should_retry = (
-                    not succeeded
-                    and number < total_attempts
-                    and not interrupted
-                )
+                should_retry = not succeeded and number < total_attempts and not interrupted
 
                 stage_status = (
                     RunStatus.SUCCEEDED
                     if succeeded
-                    else (
-                        RunStatus.CANCELLED
-                        if interrupted
-                        else RunStatus.FAILED
-                    )
+                    else (RunStatus.CANCELLED if interrupted else RunStatus.FAILED)
                 )
 
                 self._complete_attempt(
                     attempt_id,
-                    (
-                        RunStatus.SUCCEEDED
-                        if succeeded
-                        else RunStatus.FAILED
-                    ),
-                    stage_status=(
-                        None if should_retry else stage_status
-                    ),
+                    (RunStatus.SUCCEEDED if succeeded else RunStatus.FAILED),
+                    stage_status=(None if should_retry else stage_status),
                     returncode=result.returncode,
                     stdout_path=result.stdout_path,
                     stderr_path=result.stderr_path,
@@ -494,9 +448,7 @@ class PipelineRunner:
 
                 return stage_status
 
-        raise AssertionError(
-            "Attempt loop exhausted without a terminal state."
-        )
+        raise AssertionError("Attempt loop exhausted without a terminal state.")
 
     def run_version(
         self,
@@ -507,12 +459,12 @@ class PipelineRunner:
         approved: bool,
         cancel_event: Event | None = None,
         log_directory: Path | None = None,
+        on_run_created: Callable[[UUID], None] | None = None,
     ) -> PipelineRunDetails:
         """Execute a saved pipeline using its configured retry policies."""
         if not approved:
             raise ExecutionApprovalRequiredError(
-                "Review the pipeline commands and pass "
-                "approved=True explicitly."
+                "Review the pipeline commands and pass approved=True explicitly."
             )
 
         saved = PipelineService(self._factory).get_version(
@@ -530,13 +482,9 @@ class PipelineRunner:
             )
 
             if repository is None:
-                raise RepositoryNotFoundError(
-                    str(repository_id)
-                )
+                raise RepositoryNotFoundError(str(repository_id))
 
-            root = Path(
-                validate_repository_path(repository.local_path)
-            )
+            root = Path(validate_repository_path(repository.local_path))
 
         stage_ids: dict[str, UUID] = {}
 
@@ -566,6 +514,8 @@ class PipelineRunner:
                 session.flush()
 
                 stage_ids[stage.name] = row.id
+        if on_run_created is not None:
+            on_run_created(run_id)
 
         self._update_run(
             run_id,
@@ -579,10 +529,7 @@ class PipelineRunner:
         for stage in plan.ordered_stages:
             stage_id = stage_ids[stage.name]
 
-            if cancelled or (
-                cancel_event is not None
-                and cancel_event.is_set()
-            ):
+            if cancelled or (cancel_event is not None and cancel_event.is_set()):
                 cancelled = True
 
                 self._update_stage(
@@ -596,8 +543,7 @@ class PipelineRunner:
 
             # Dependents wait for final success, including all retries.
             if unexpected is not None or any(
-                statuses[dependency] != RunStatus.SUCCEEDED
-                for dependency in stage.depends_on
+                statuses[dependency] != RunStatus.SUCCEEDED for dependency in stage.depends_on
             ):
                 self._update_stage(
                     stage_id,
@@ -631,16 +577,10 @@ class PipelineRunner:
         if cancelled:
             final = RunStatus.CANCELLED
 
-        elif any(
-            status == RunStatus.TIMED_OUT
-            for status in statuses.values()
-        ):
+        elif any(status == RunStatus.TIMED_OUT for status in statuses.values()):
             final = RunStatus.TIMED_OUT
 
-        elif all(
-            status == RunStatus.SUCCEEDED
-            for status in statuses.values()
-        ):
+        elif all(status == RunStatus.SUCCEEDED for status in statuses.values()):
             final = RunStatus.SUCCEEDED
 
         else:
