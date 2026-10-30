@@ -12,6 +12,7 @@ from buildscope.pipelines.run_models import (
     StageRunRecord,
 )
 from buildscope.repositories.models import Repository
+from buildscope.workers.models import WorkerJobRecord
 
 config = context.config
 
@@ -22,6 +23,7 @@ _ = (
     PipelineRunRecord,
     StageRunRecord,
     StageAttemptRecord,
+    WorkerJobRecord,
 )
 
 target_metadata = Base.metadata

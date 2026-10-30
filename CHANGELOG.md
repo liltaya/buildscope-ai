@@ -172,3 +172,17 @@
 - Historical attempt retrieval.
 - StageAttemptDetails and attempt_count.
 - Retry and failure propagation integration tests.
+
+### Added
+
+- Durable worker job queue.
+- WorkerJobRecord SQLAlchemy model.
+- Alembic migration 0005.
+- Atomic SQLite job claiming.
+- Worker ownership validation.
+- Per-repository execution serialization.
+- Local worker CLI.
+- Independent Python worker processes.
+- Spawn-based multiprocessing launcher.
+- Job-to-pipeline-run linkage.
+- Worker queue integration tests.
