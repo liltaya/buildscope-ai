@@ -158,3 +158,17 @@
 - Historical pipeline-run retrieval.
 - Explicit approval requirement for local execution.
 - Pipeline-run integration tests.
+
+### Added
+
+- StageAttemptRecord database model.
+- Alembic migration 0004 for execution attempts.
+- Retry-aware PipelineRunner.
+- Configurable retry counts per stage.
+- Individual attempt status persistence.
+- Retry handling for command failures and timeouts.
+- Cancellation-aware retry termination.
+- Dependency blocking after retries are exhausted.
+- Historical attempt retrieval.
+- StageAttemptDetails and attempt_count.
+- Retry and failure propagation integration tests.

@@ -1,4 +1,4 @@
-"""Pipeline configuration, validation, planning, and persistence."""
+"""Pipeline configuration, validation, planning, and persistence"""
 
 from buildscope.pipelines.graph import (
     PipelineGraphError,
@@ -17,6 +17,7 @@ from buildscope.pipelines.runner import (
     PipelineRunner,
     PipelineRunnerError,
     PipelineRunNotFoundError,
+    StageAttemptDetails,
     StageRunDetails,
 )
 from buildscope.pipelines.schema import (
@@ -36,26 +37,27 @@ from buildscope.pipelines.state import (
 )
 
 __all__ = [
+    "ExecutionApprovalRequiredError",
+    "InvalidRunTransitionError",
     "PipelineConfigError",
     "PipelineDefinition",
     "PipelineGraphError",
     "PipelineNotFoundError",
     "PipelinePlan",
+    "PipelineRunDetails",
+    "PipelineRunner",
+    "PipelineRunnerError",
+    "PipelineRunNotFoundError",
     "PipelineService",
     "PipelineVersion",
     "PipelineVersionConflictError",
+    "RunStatus",
+    "StageAttemptDetails",
     "StageDefinition",
+    "StageRunDetails",
+    "assert_transition",
     "build_pipeline_plan",
     "load_pipeline_file",
     "load_pipeline_plan",
     "parse_pipeline_yaml",
-    "ExecutionApprovalRequiredError",
-    "InvalidRunTransitionError",
-    "PipelineRunDetails",
-    "PipelineRunNotFoundError",
-    "PipelineRunner",
-    "PipelineRunnerError",
-    "RunStatus",
-    "StageRunDetails",
-    "assert_transition",
 ]
