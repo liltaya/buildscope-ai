@@ -508,3 +508,28 @@ Independent stages may continue executing.
 Current limitations include immediate retries without backoff,
 synchronous execution, no distributed workers, and no automatic
 crash recovery.
+
+
+## Python worker processes
+
+The local worker architecture separates job submission from execution.
+
+Components:
+
+- WorkerJobRecord: durable queued job
+- WorkerQueue: enqueue, claim, complete and inspect
+- Worker process: independently opens a database engine
+- Launcher: creates workers using multiprocessing spawn
+- PipelineRunner: performs the saved pipeline execution
+
+Job claims use an atomic SQLite UPDATE with RETURNING.
+
+Workers identify themselves using unique local worker IDs.
+
+At most one active job per repository is allowed at a time.
+
+Different repository jobs can execute concurrently.
+
+Jobs link to PipelineRunRecord when execution completes.
+
+Crash recovery, worker leases, and heartbeats are deferred to Part 19.

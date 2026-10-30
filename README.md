@@ -540,3 +540,46 @@ Retries currently have no delay or backoff.
 
 Commands with non-idempotent side effects should not be configured for
 automatic retries without careful review.
+
+
+## Local Python workers
+
+BuildScope supports persistent local pipeline jobs executed by separate
+Python worker processes.
+
+Features:
+
+- SQLite-backed job queue
+- Explicit local approval before enqueueing
+- Atomic job claiming
+- Worker ownership tracking
+- Per-repository execution serialization
+- Multiple spawned Python workers
+- Reuse of PipelineRunner and its retry policies
+- Persistent links to pipeline execution history
+
+Preview an approved pipeline's commands using the local worker CLI.
+
+Enqueue it with the explicit --approve flag.
+
+Run queued jobs using:
+
+    python -m buildscope.workers.worker --database data/buildscope.db --drain
+
+Start two workers:
+
+    python -m buildscope.workers.launcher --database data/buildscope.db --workers 2
+
+### Limitations
+
+Workers run commands with the local user's permissions.
+
+Workers do not provide sandboxing or isolation from the host filesystem.
+
+Worker heartbeats, leases, crash recovery, and sophisticated scheduling
+are not yet implemented.
+
+Only trusted local users should be allowed to enqueue work or modify
+the SQLite database.
+
+A crashed worker may leave its job in RUNNING.
