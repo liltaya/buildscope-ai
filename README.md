@@ -487,3 +487,56 @@ a future recovery mechanism reconciles its state.
 Executing pipeline commands requires explicit local approval.
 
 No unauthenticated HTTP execution endpoint is provided.
+
+
+## Pipeline retries and execution attempts
+
+BuildScope supports configurable retries for individual pipeline stages.
+
+Use `retry_count` in a stage definition:
+
+```yaml
+name: quality
+
+stages:
+  - name: tests
+    command: [pytest, -q]
+    retry_count: 2
+    timeout_seconds: 120
+```
+
+A retry count of 2 allows up to 3 total execution attempts.
+
+Retryable outcomes:
+
+- Nonzero command exit codes
+- Command timeouts
+
+Non-retryable outcomes:
+
+- Successful commands
+- Cancellation
+- Executable launch errors
+- Unexpected execution infrastructure failures
+
+Each attempt is persisted separately in SQLite.
+
+The `stage_attempts` table records:
+
+- Attempt number
+- Status
+- Exit code
+- Start and finish timestamps
+- stdout and stderr paths
+- Error information
+
+StageRunDetails exposes `attempts` and `attempt_count`.
+
+Stages remain RUNNING while retries are in progress.
+
+Dependent stages execute only after their prerequisites have succeeded.
+
+Retries currently have no delay or backoff.
+
+Commands with non-idempotent side effects should not be configured for
+automatic retries without careful review.

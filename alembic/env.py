@@ -5,6 +5,7 @@ from pathlib import Path
 from alembic import context
 from buildscope.database.base import Base
 from buildscope.database.engine import create_sqlite_engine
+from buildscope.pipelines.attempt_models import StageAttemptRecord
 from buildscope.pipelines.models import PipelineDefinitionRecord
 from buildscope.pipelines.run_models import (
     PipelineRunRecord,
@@ -20,6 +21,7 @@ _ = (
     PipelineDefinitionRecord,
     PipelineRunRecord,
     StageRunRecord,
+    StageAttemptRecord,
 )
 
 target_metadata = Base.metadata

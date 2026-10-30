@@ -462,3 +462,49 @@ The current implementation uses synchronous sequential execution.
 
 Automatic retries, distributed workers, scheduling, and crash recovery
 will be implemented later.
+
+
+## Stage attempts and retry policies
+
+BuildScope distinguishes a stage run from its individual command attempts.
+
+Data relationships:
+
+    PipelineRunRecord
+           |
+           v
+      StageRunRecord
+           |
+           v
+     StageAttemptRecord
+
+A stage can have multiple execution attempts.
+
+The retry policy is read from the saved StageDefinition.
+
+Maximum attempts equal retry_count + 1.
+
+Each attempt follows the state machine:
+
+    QUEUED -> RUNNING -> terminal
+
+A stage remains RUNNING while retry attempts remain.
+
+The final attempt determines the terminal stage status.
+
+Attempt and final stage outcomes are committed atomically when a stage
+finishes.
+
+The runner retries nonzero exit codes and timeouts.
+
+Cancellation and execution infrastructure failures stop retries.
+
+Dependent stages remain ineligible until prerequisites reach SUCCEEDED.
+
+After retries are exhausted, dependent stages are marked BLOCKED.
+
+Independent stages may continue executing.
+
+Current limitations include immediate retries without backoff,
+synchronous execution, no distributed workers, and no automatic
+crash recovery.
