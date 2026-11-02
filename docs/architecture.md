@@ -566,3 +566,43 @@ serialization for active jobs.
 Known limitations include PID reuse, process descendants surviving
 worker death, and the narrow crash window before a newly created
 pipeline run is linked to its worker job.
+
+
+## Priority scheduler
+
+The scheduler is implemented in:
+
+`buildscope/workers/scheduler.py`
+
+It extends WorkerQueue with:
+
+- Priority-based ordering
+- Earliest execution timestamps
+- Per-repository fairness
+- Global running-job capacity
+
+The scheduler filters eligible QUEUED jobs.
+
+Jobs are ordered by descending priority.
+
+Within a priority tier, the repository with the oldest last-claimed
+timestamp is preferred.
+
+Queue time and UUID provide deterministic tie-breaking.
+
+The last repository claim timestamp is derived from worker job history.
+
+The global capacity check is part of the same atomic SQLite UPDATE
+that claims the job.
+
+A correlated subquery prevents claims when another job for the same
+repository is RUNNING.
+
+Part 19 claim tokens, heartbeat renewal, lease ownership and recovery
+remain unchanged.
+
+The scheduler does not execute commands, manage subprocess resources,
+or replace PipelineRunner.
+
+Current limitations include strict-priority starvation, no persistent
+global scheduling configuration, and no CPU/memory-based resource quotas.

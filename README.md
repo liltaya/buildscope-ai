@@ -635,3 +635,54 @@ against the recovered repository.
 
 This is local process coordination, not distributed consensus or
 an operating-system sandbox.
+
+
+## Worker scheduling
+
+BuildScope supports priority-based scheduling for approved local jobs.
+
+Scheduling features:
+
+- Integer priorities from 0 to 9
+- Default priority of 5
+- Optional not_before execution timestamp
+- Global maximum number of active jobs
+- One active job per repository
+- FIFO ordering within equivalent scheduling conditions
+- Fair rotation between repositories at equal priority
+- Atomic SQLite job claiming
+
+Priority 9 is the highest priority.
+
+Higher-priority jobs are considered before lower-priority jobs.
+
+Within a priority level, repositories that have waited longer
+since their last claim are considered first.
+
+### Worker pool
+
+Run a bounded worker pool:
+
+    python -m buildscope.workers.launcher \
+      --database data/buildscope.db \
+      --workers 4 \
+      --max-running-jobs 2
+
+Use --continuous to keep polling for future scheduled jobs.
+
+All workers sharing a database must use the same global capacity policy.
+
+### Limitations
+
+Scheduling does not provide CPU or memory resource isolation.
+
+The per-repository concurrency limit is one active job.
+
+Strict priority can starve lower-priority work.
+
+A queued job's not_before value is an eligibility deadline,
+not a guaranteed execution time.
+
+Crashed jobs remain counted as RUNNING until safely recovered.
+
+Workers must execute only locally approved, trusted pipeline commands.
