@@ -10,9 +10,9 @@ from datetime import UTC, datetime, timedelta
 from functools import wraps
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from buildscope.database.session import SessionFactory
 from buildscope.pipelines.attempt_models import StageAttemptRecord
@@ -28,12 +28,18 @@ from buildscope.workers.models import (
     WorkerHeartbeatRecord,
     WorkerJobRecord,
 )
+from buildscope.workers.scheduler import (
+    DEFAULT_PRIORITY,
+    SchedulingPolicy,
+    candidate_job_id,
+    normalize_not_before,
+    validate_priority,
+)
 
 
 def retry_sqlite_locks[**P, R](
     func: Callable[P, R],
 ) -> Callable[P, R]:
-
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         for attempt in range(12):
@@ -88,6 +94,8 @@ class JobDetails:
     finished_at: datetime | None
     lease_expires_at: datetime | None
     error_message: str | None
+    priority: int
+    not_before: datetime | None
 
 
 def _pid_alive(pid: int) -> bool:
@@ -98,10 +106,8 @@ def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
         return True
-
     except ProcessLookupError:
         return False
-
     except PermissionError:
         return True
 
@@ -116,12 +122,16 @@ class WorkerQueue:
     @staticmethod
     def _lease_seconds(seconds: int) -> None:
         if isinstance(seconds, bool) or not 3 <= seconds <= 3600:
-            raise ValueError("lease_seconds must be between 3 and 3600")
+            raise ValueError(
+                "lease_seconds must be between 3 and 3600"
+            )
 
     @staticmethod
     def _validate_worker(worker_id: str) -> None:
         if not worker_id or len(worker_id) > 128:
-            raise ValueError("worker_id must have 1-128 characters")
+            raise ValueError(
+                "worker_id must have 1-128 characters"
+            )
 
     @staticmethod
     def _owns(
@@ -171,16 +181,21 @@ class WorkerQueue:
                         last_seen_at=now,
                     )
                 )
-
-            elif row.status == "ACTIVE" and row.pid != actual_pid:
-                raise JobOwnershipError("Worker identifier is already active for another PID")
-
+            elif (
+                row.status == "ACTIVE"
+                and row.pid != actual_pid
+            ):
+                raise JobOwnershipError(
+                    "Worker identifier is already active "
+                    "for another PID"
+                )
             else:
                 row.pid = actual_pid
                 row.status = "ACTIVE"
                 row.stopped_at = None
                 row.last_seen_at = now
 
+    @retry_sqlite_locks
     def stop_worker(self, worker_id: str) -> None:
         with self._factory.begin() as session:
             row = session.get(
@@ -199,11 +214,21 @@ class WorkerQueue:
         version: int,
         *,
         approved: bool,
+        priority: int = DEFAULT_PRIORITY,
+        not_before: datetime | None = None,
     ) -> JobDetails:
+        """Persist one approved job with scheduling metadata."""
         if not approved:
-            raise ExecutionApprovalRequiredError("Review commands and approve before enqueuing.")
+            raise ExecutionApprovalRequiredError(
+                "Review commands and approve before enqueuing."
+            )
 
-        saved = PipelineService(self._factory).get_version(
+        validate_priority(priority)
+        earliest = normalize_not_before(not_before)
+
+        saved = PipelineService(
+            self._factory
+        ).get_version(
             repository_id,
             name,
             version,
@@ -216,10 +241,13 @@ class WorkerQueue:
                 repository_id=repository_id,
                 pipeline_definition_id=saved.id,
                 status=RunStatus.QUEUED.value,
+                priority=priority,
+                not_before=earliest,
             )
 
             session.add(row)
             session.flush()
+
             job_id = row.id
 
         return self.get_job(job_id)
@@ -240,7 +268,9 @@ class WorkerQueue:
             )
 
             if definition is None:
-                raise RuntimeError("Job references a missing pipeline definition")
+                raise RuntimeError(
+                    "Job references a missing pipeline definition"
+                )
 
             return JobDetails(
                 id=row.id,
@@ -256,6 +286,8 @@ class WorkerQueue:
                 finished_at=row.finished_at,
                 lease_expires_at=row.lease_expires_at,
                 error_message=row.error_message,
+                priority=row.priority,
+                not_before=row.not_before,
             )
 
     @retry_sqlite_locks
@@ -264,48 +296,41 @@ class WorkerQueue:
         worker_id: str,
         *,
         lease_seconds: int = 15,
+        max_running_jobs: int = 2,
     ) -> ClaimedJob | None:
-        """Atomically claim one eligible job."""
+        """Atomically claim the highest-ranked eligible job."""
         self._validate_worker(worker_id)
         self._lease_seconds(lease_seconds)
 
-        # Also supports the Part 18 claim_next() callers.
+        policy = SchedulingPolicy(
+            max_running_jobs=max_running_jobs
+        )
+
         self.register_worker(worker_id)
 
         now = datetime.now(UTC)
         token = uuid4()
         expiry = now + timedelta(seconds=lease_seconds)
 
-        active = aliased(WorkerJobRecord)
-
-        repo_busy = (
-            select(active.id)
+        active_count = (
+            select(func.count())
+            .select_from(WorkerJobRecord)
             .where(
-                active.repository_id == WorkerJobRecord.repository_id,
-                active.status == RunStatus.RUNNING.value,
+                WorkerJobRecord.status
+                == RunStatus.RUNNING.value
             )
-            .exists()
-        )
-
-        next_id = (
-            select(WorkerJobRecord.id)
-            .where(
-                WorkerJobRecord.status == RunStatus.QUEUED.value,
-                ~repo_busy,
-            )
-            .order_by(
-                WorkerJobRecord.queued_at,
-                WorkerJobRecord.id,
-            )
-            .limit(1)
             .scalar_subquery()
         )
+
+        next_id = candidate_job_id(now)
 
         statement = (
             update(WorkerJobRecord)
             .where(
                 WorkerJobRecord.id == next_id,
-                WorkerJobRecord.status == RunStatus.QUEUED.value,
+                WorkerJobRecord.status
+                == RunStatus.QUEUED.value,
+                active_count < policy.max_running_jobs,
             )
             .values(
                 status=RunStatus.RUNNING.value,
@@ -318,7 +343,9 @@ class WorkerQueue:
         )
 
         with self._factory.begin() as session:
-            claimed_id = session.execute(statement).scalar_one_or_none()
+            claimed_id = session.execute(
+                statement
+            ).scalar_one_or_none()
 
             if claimed_id is None:
                 return None
@@ -328,24 +355,31 @@ class WorkerQueue:
                 claimed_id,
             )
 
-            assert row is not None
+            if row is None:
+                raise RuntimeError(
+                    "Claimed job disappeared"
+                )
 
             definition = session.get(
                 PipelineDefinitionRecord,
                 row.pipeline_definition_id,
             )
 
-            assert definition is not None
+            if definition is None:
+                raise RuntimeError(
+                    "Job references a missing pipeline definition"
+                )
 
             return ClaimedJob(
-                row.id,
-                row.repository_id,
-                definition.name,
-                definition.version,
-                token,
-                expiry,
+                id=row.id,
+                repository_id=row.repository_id,
+                pipeline_name=definition.name,
+                version=definition.version,
+                claim_token=token,
+                lease_expires_at=expiry,
             )
 
+    @retry_sqlite_locks
     def heartbeat(
         self,
         worker_id: str,
@@ -365,12 +399,19 @@ class WorkerQueue:
                 worker_id,
             )
 
-            if worker is None or worker.status != "ACTIVE":
-                raise JobOwnershipError("Worker is not registered as active")
+            if (
+                worker is None
+                or worker.status != "ACTIVE"
+            ):
+                raise JobOwnershipError(
+                    "Worker is not registered as active"
+                )
 
             if job_id is not None:
                 if claim_token is None:
-                    raise JobOwnershipError("Claim token is required")
+                    raise JobOwnershipError(
+                        "Claim token is required"
+                    )
 
                 job = session.get(
                     WorkerJobRecord,
@@ -383,14 +424,20 @@ class WorkerQueue:
                     claim_token,
                     now,
                 ):
-                    raise JobOwnershipError("Lease is lost, expired, or owned by another worker")
+                    raise JobOwnershipError(
+                        "Lease is lost, expired, "
+                        "or owned by another worker"
+                    )
 
                 assert job is not None
 
-                job.lease_expires_at = now + timedelta(seconds=lease_seconds)
+                job.lease_expires_at = (
+                    now + timedelta(seconds=lease_seconds)
+                )
 
             worker.last_seen_at = now
 
+    @retry_sqlite_locks
     def attach_run(
         self,
         job_id: UUID,
@@ -413,7 +460,9 @@ class WorkerQueue:
                 claim_token,
                 now,
             ):
-                raise JobOwnershipError("Cannot attach run after ownership was lost")
+                raise JobOwnershipError(
+                    "Cannot attach run after ownership was lost"
+                )
 
             assert job is not None
 
@@ -425,15 +474,24 @@ class WorkerQueue:
             if (
                 run is None
                 or run.repository_id != job.repository_id
-                or run.pipeline_definition_id != job.pipeline_definition_id
+                or run.pipeline_definition_id
+                != job.pipeline_definition_id
             ):
-                raise JobOwnershipError("Run does not match this job")
+                raise JobOwnershipError(
+                    "Run does not match this job"
+                )
 
-            if job.pipeline_run_id is not None and job.pipeline_run_id != run_id:
-                raise JobOwnershipError("Job already has a different pipeline run")
+            if (
+                job.pipeline_run_id is not None
+                and job.pipeline_run_id != run_id
+            ):
+                raise JobOwnershipError(
+                    "Job already has a different pipeline run"
+                )
 
             job.pipeline_run_id = run_id
 
+    @retry_sqlite_locks
     def complete(
         self,
         job_id: UUID,
@@ -451,7 +509,9 @@ class WorkerQueue:
             RunStatus.TIMED_OUT,
             RunStatus.CANCELLED,
         }:
-            raise ValueError("Job requires a terminal status")
+            raise ValueError(
+                "Job requires a terminal status"
+            )
 
         now = datetime.now(UTC)
 
@@ -468,7 +528,8 @@ class WorkerQueue:
                 now,
             ):
                 raise JobOwnershipError(
-                    "Only the current, unexpired lease owner may finish this job"
+                    "Only the current, unexpired lease owner "
+                    "may finish this job"
                 )
 
             assert job is not None
@@ -482,12 +543,20 @@ class WorkerQueue:
                 if (
                     run is None
                     or run.repository_id != job.repository_id
-                    or run.pipeline_definition_id != job.pipeline_definition_id
+                    or run.pipeline_definition_id
+                    != job.pipeline_definition_id
                 ):
-                    raise JobOwnershipError("Run does not match this job")
+                    raise JobOwnershipError(
+                        "Run does not match this job"
+                    )
 
-                if job.pipeline_run_id is not None and job.pipeline_run_id != pipeline_run_id:
-                    raise JobOwnershipError("Job is linked to another run")
+                if (
+                    job.pipeline_run_id is not None
+                    and job.pipeline_run_id != pipeline_run_id
+                ):
+                    raise JobOwnershipError(
+                        "Job is linked to another run"
+                    )
 
                 job.pipeline_run_id = pipeline_run_id
 
@@ -498,20 +567,32 @@ class WorkerQueue:
 
             job.status = status.value
             job.finished_at = now
-            job.error_message = error_message[:2000] if error_message else None
+            job.error_message = (
+                error_message[:2000]
+                if error_message
+                else None
+            )
             job.lease_expires_at = None
 
+    @retry_sqlite_locks
     def recover_stale(
         self,
         *,
         stale_after_seconds: int = 30,
     ) -> list[UUID]:
         """Mark abandoned local jobs terminal; never replay."""
-        if isinstance(stale_after_seconds, bool) or not 3 <= stale_after_seconds <= 86400:
-            raise ValueError("stale_after_seconds must be between 3 and 86400")
+        if (
+            isinstance(stale_after_seconds, bool)
+            or not 3 <= stale_after_seconds <= 86400
+        ):
+            raise ValueError(
+                "stale_after_seconds must be between 3 and 86400"
+            )
 
         now = datetime.now(UTC)
-        cutoff = now - timedelta(seconds=stale_after_seconds)
+        cutoff = now - timedelta(
+            seconds=stale_after_seconds
+        )
 
         recovered: list[UUID] = []
 
@@ -519,7 +600,8 @@ class WorkerQueue:
             jobs = session.scalars(
                 select(WorkerJobRecord)
                 .where(
-                    WorkerJobRecord.status == RunStatus.RUNNING.value,
+                    WorkerJobRecord.status
+                    == RunStatus.RUNNING.value,
                     or_(
                         WorkerJobRecord.lease_expires_at.is_(None),
                         WorkerJobRecord.lease_expires_at <= now,
@@ -539,8 +621,10 @@ class WorkerQueue:
                 )
 
                 if worker is not None:
-                    # Require stale heartbeat AND dead PID.
-                    if worker.status == "ACTIVE" and worker.last_seen_at > cutoff:
+                    if (
+                        worker.status == "ACTIVE"
+                        and worker.last_seen_at > cutoff
+                    ):
                         continue
 
                     if _pid_alive(worker.pid):
@@ -555,15 +639,21 @@ class WorkerQueue:
                     else None
                 )
 
-                if run is not None and RunStatus(run.status) in {
-                    RunStatus.SUCCEEDED,
-                    RunStatus.FAILED,
-                    RunStatus.TIMED_OUT,
-                    RunStatus.CANCELLED,
-                }:
+                if (
+                    run is not None
+                    and RunStatus(run.status)
+                    in {
+                        RunStatus.SUCCEEDED,
+                        RunStatus.FAILED,
+                        RunStatus.TIMED_OUT,
+                        RunStatus.CANCELLED,
+                    }
+                ):
                     terminal = RunStatus(run.status)
-                    reason = "Recovered completed run after worker exited before finalizing job"
-
+                    reason = (
+                        "Recovered completed run after worker "
+                        "exited before finalizing job"
+                    )
                 else:
                     terminal = RunStatus.FAILED
                     reason = (
@@ -610,9 +700,12 @@ class WorkerQueue:
             select(StageAttemptRecord)
             .join(
                 StageRunRecord,
-                StageAttemptRecord.stage_run_id == StageRunRecord.id,
+                StageAttemptRecord.stage_run_id
+                == StageRunRecord.id,
             )
-            .where(StageRunRecord.pipeline_run_id == run.id)
+            .where(
+                StageRunRecord.pipeline_run_id == run.id
+            )
         ).all()
 
         for attempt in attempts:
@@ -621,7 +714,11 @@ class WorkerQueue:
             target = (
                 RunStatus.FAILED
                 if current == RunStatus.RUNNING
-                else (RunStatus.CANCELLED if current == RunStatus.QUEUED else None)
+                else (
+                    RunStatus.CANCELLED
+                    if current == RunStatus.QUEUED
+                    else None
+                )
             )
 
             if target is not None:
@@ -631,7 +728,9 @@ class WorkerQueue:
                 attempt.error_message = reason
 
         stages = session.scalars(
-            select(StageRunRecord).where(StageRunRecord.pipeline_run_id == run.id)
+            select(StageRunRecord).where(
+                StageRunRecord.pipeline_run_id == run.id
+            )
         ).all()
 
         for stage in stages:
@@ -640,7 +739,11 @@ class WorkerQueue:
             target = (
                 RunStatus.FAILED
                 if current == RunStatus.RUNNING
-                else (RunStatus.BLOCKED if current == RunStatus.QUEUED else None)
+                else (
+                    RunStatus.BLOCKED
+                    if current == RunStatus.QUEUED
+                    else None
+                )
             )
 
             if target is not None:
@@ -656,6 +759,7 @@ class WorkerQueue:
                 current_run,
                 RunStatus.FAILED,
             )
+
             run.status = RunStatus.FAILED.value
             run.finished_at = now
 
@@ -664,5 +768,6 @@ class WorkerQueue:
                 current_run,
                 RunStatus.CANCELLED,
             )
+
             run.status = RunStatus.CANCELLED.value
             run.finished_at = now

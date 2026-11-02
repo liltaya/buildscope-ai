@@ -199,3 +199,16 @@
 - Conservative abandoned-job recovery.
 - Reconciliation of incomplete pipeline execution records.
 - Heartbeat, lease, and crash-recovery tests.
+
+### Added
+
+- Job priority scheduling.
+- Delayed job eligibility using not_before.
+- SchedulingPolicy configuration.
+- Global concurrent-job capacity checks.
+- Repository fairness using historical claim timestamps.
+- Priority-aware atomic SQLite claiming.
+- Alembic migration 0007.
+- Worker pool concurrency configuration.
+- Continuous polling option for scheduled jobs.
+- Scheduler integration and concurrency tests.

@@ -10,6 +10,8 @@ from pathlib import Path
 from threading import Event, Lock, Thread
 from uuid import UUID, uuid4
 
+from sqlalchemy.exc import OperationalError
+
 from buildscope.database import (
     create_session_factory,
     create_sqlite_engine,
@@ -20,6 +22,7 @@ from buildscope.workers.queue import (
     JobOwnershipError,
     WorkerQueue,
 )
+from buildscope.workers.scheduler import SchedulingPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,7 @@ def run_worker(
     poll_interval: float = 0.3,
     lease_seconds: int = 15,
     heartbeat_interval: float = 2.0,
+    max_running_jobs: int = 2,
 ) -> int:
     """Process approved jobs; cancel execution if lease is lost."""
     if not 0 < heartbeat_interval < lease_seconds / 2:
@@ -38,6 +42,8 @@ def run_worker(
             "heartbeat_interval must be positive "
             "and less than half the lease"
         )
+
+    SchedulingPolicy(max_running_jobs=max_running_jobs)
 
     database_path = database_path.expanduser().resolve(strict=True)
 
@@ -100,6 +106,21 @@ def run_worker(
 
                         return
 
+                except OperationalError as exc:
+                    if "locked" not in str(exc.orig).lower():
+                        logger.exception(
+                            "Worker %s heartbeat database error",
+                            worker_id,
+                        )
+                    else:
+                        logger.warning(
+                            "Worker %s heartbeat lock retry exhausted",
+                            worker_id,
+                        )
+
+                    # Never claim success; the lease may expire
+                    # if writes keep failing.
+
                 except Exception:
                     # Transient DB failures can clear on retry.
                     # Persistent failure eventually expires the lease.
@@ -121,6 +142,7 @@ def run_worker(
                 job = queue.claim_next(
                     worker_id,
                     lease_seconds=lease_seconds,
+                    max_running_jobs=max_running_jobs,
                 )
 
                 if job is None:
@@ -269,6 +291,13 @@ def main() -> None:
         default=2.0,
     )
 
+    parser.add_argument(
+        "--max-running-jobs",
+        type=int,
+        default=2,
+        help="Global maximum simultaneously running jobs",
+    )
+
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -280,6 +309,7 @@ def main() -> None:
         drain=args.drain,
         lease_seconds=args.lease_seconds,
         heartbeat_interval=args.heartbeat_interval,
+        max_running_jobs=args.max_running_jobs,
     )
 
     print(f"Worker finished {count} job(s)")
