@@ -686,3 +686,43 @@ not a guaranteed execution time.
 Crashed jobs remain counted as RUNNING until safely recovered.
 
 Workers must execute only locally approved, trusted pipeline commands.
+
+## Native C++ stage worker
+
+BuildScope supports an optional C++20 POSIX stage-execution backend.
+
+The native worker:
+
+- Executes commands with fork and execvp
+- Uses explicit argument arrays
+- Does not invoke a shell
+- Captures stdout and stderr separately
+- Applies output-size limits
+- Enforces execution timeouts
+- Handles cancellation signals
+- Terminates the stage process group
+- Returns a versioned execution status protocol
+
+Python continues to own:
+
+- SQLite job queue
+- Priority scheduling
+- Lease renewal and heartbeats
+- DAG ordering
+- Retry policies
+- Execution attempt persistence
+
+Build:
+
+    cmake --build build --target buildscope_cpp_worker
+
+Run a queue worker with native execution:
+
+    python -m buildscope.workers.worker \
+      --database data/buildscope.db \
+      --drain \
+      --cpp-worker ./build/buildscope_cpp_worker
+
+This backend requires macOS or Linux.
+
+It is not an operating-system sandbox.
