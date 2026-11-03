@@ -226,3 +226,16 @@
 - C++ backend options for Python workers.
 - C++ backend support in the multiprocessing launcher.
 - Native worker integration tests.
+### Added
+
+- GitSnapshot and GitMetadataError.
+- Git commit capture before pipeline execution.
+- Commit SHA, branch, dirty status, date and subject persistence.
+- Alembic migration 0008 for Git-linked run history.
+- GitRunSummary and GitRegression models.
+- GitRegressionHistoryService.
+- Branch-specific execution history queries.
+- Success-to-failure regression detection.
+- Pipeline-version-aware comparisons.
+- Read-only Git history CLI.
+- Git snapshot and regression detection tests.

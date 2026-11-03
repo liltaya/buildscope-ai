@@ -627,3 +627,37 @@ heartbeats, leases, scheduling, retries and SQLite persistence.
 The default Python backend remains available.
 
 Native execution is optional and explicitly configured per Python worker.
+
+## Git regression history
+
+PipelineRunner captures Git checkout metadata before creating a run.
+
+The snapshot is persisted on PipelineRunRecord.
+
+Fields include:
+
+- git_commit_sha
+- git_branch
+- git_is_dirty
+- git_commit_at
+- git_commit_subject
+
+GitRegressionHistoryService joins pipeline runs to versioned
+pipeline definitions.
+
+History is filtered by repository, pipeline name, and optionally branch.
+
+Regression comparison requires:
+
+- A clean working tree
+- The same branch
+- The same pipeline definition version
+- A different Git commit SHA
+- A previous SUCCEEDED run followed by a FAILED run
+
+The service does not execute Git bisect or determine causality.
+
+Historical runs created before migration 0008 do not contain Git metadata.
+
+The worker queue, leases, scheduling, retry engine, and C++ execution
+backend are unchanged.
