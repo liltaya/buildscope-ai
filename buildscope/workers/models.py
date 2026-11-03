@@ -1,4 +1,3 @@
-
 """Durable worker jobs and local worker liveness."""
 
 from __future__ import annotations

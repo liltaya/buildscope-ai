@@ -13,7 +13,6 @@ from sqlalchemy.sql.selectable import ScalarSelect
 from buildscope.pipelines.state import RunStatus
 from buildscope.workers.models import WorkerJobRecord
 
-
 MIN_PRIORITY = 0
 MAX_PRIORITY = 9
 DEFAULT_PRIORITY = 5
@@ -28,14 +27,8 @@ class SchedulingPolicy:
     def __post_init__(self) -> None:
         value = self.max_running_jobs
 
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, int)
-            or not 1 <= value <= 16
-        ):
-            raise ValueError(
-                "max_running_jobs must be an integer from 1 to 16"
-            )
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 16:
+            raise ValueError("max_running_jobs must be an integer from 1 to 16")
 
 
 def validate_priority(priority: int) -> None:
@@ -45,9 +38,7 @@ def validate_priority(priority: int) -> None:
         or not isinstance(priority, int)
         or not MIN_PRIORITY <= priority <= MAX_PRIORITY
     ):
-        raise ValueError(
-            "priority must be an integer from 0 to 9"
-        )
+        raise ValueError("priority must be an integer from 0 to 9")
 
 
 def normalize_not_before(
@@ -58,14 +49,10 @@ def normalize_not_before(
         return None
 
     if not isinstance(value, datetime):
-        raise ValueError(
-            "not_before must be a datetime or None"
-        )
+        raise ValueError("not_before must be a datetime or None")
 
     if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError(
-            "not_before must include a timezone"
-        )
+        raise ValueError("not_before must include a timezone")
 
     return value.astimezone(UTC)
 
@@ -90,10 +77,8 @@ def candidate_job_id(
     repository_busy = (
         select(active.id)
         .where(
-            active.repository_id
-            == WorkerJobRecord.repository_id,
-            active.status
-            == RunStatus.RUNNING.value,
+            active.repository_id == WorkerJobRecord.repository_id,
+            active.status == RunStatus.RUNNING.value,
         )
         .exists()
     )
@@ -101,10 +86,7 @@ def candidate_job_id(
     # Last time this repository received a job.
     last_claimed = (
         select(func.max(previous.started_at))
-        .where(
-            previous.repository_id
-            == WorkerJobRecord.repository_id
-        )
+        .where(previous.repository_id == WorkerJobRecord.repository_id)
         .correlate(WorkerJobRecord)
         .scalar_subquery()
     )
@@ -112,8 +94,7 @@ def candidate_job_id(
     return (
         select(WorkerJobRecord.id)
         .where(
-            WorkerJobRecord.status
-            == RunStatus.QUEUED.value,
+            WorkerJobRecord.status == RunStatus.QUEUED.value,
             or_(
                 WorkerJobRecord.not_before.is_(None),
                 WorkerJobRecord.not_before <= now,
