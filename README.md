@@ -726,3 +726,47 @@ Run a queue worker with native execution:
 This backend requires macOS or Linux.
 
 It is not an operating-system sandbox.
+
+## Git-linked pipeline execution history
+
+BuildScope records the Git checkout associated with each new pipeline run.
+
+Captured information:
+
+- Full commit SHA
+- Branch name
+- Working-tree dirty status
+- Commit timestamp
+- Commit subject
+
+Git metadata is captured before stage execution.
+
+Non-Git repositories remain supported.
+
+### History
+
+    python -m buildscope.git.history_cli \
+      --database data/buildscope.db \
+      --repository <UUID> \
+      --pipeline quality \
+      history
+
+### Regression detection
+
+    python -m buildscope.git.history_cli \
+      --database data/buildscope.db \
+      --repository <UUID> \
+      --pipeline quality \
+      regressions
+
+The initial detector identifies clean success-to-failure transitions
+between different commits on the same branch and pipeline version.
+
+Dirty runs remain queryable but are excluded from regression detection.
+
+Timeouts, cancellations, and detached-HEAD runs are not automatically
+classified as branch regressions.
+
+Detection identifies an observed failure window, not the causal commit.
+
+Git bisect and automated culprit identification are not implemented.

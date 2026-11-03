@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     ForeignKey,
     Integer,
     String,
@@ -61,6 +62,30 @@ class PipelineRunRecord(Base):
 
     finished_at: Mapped[datetime | None] = mapped_column(
         UTCDateTime(),
+        nullable=True,
+    )
+    git_commit_sha: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    git_branch: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    git_is_dirty: Mapped[bool | None] = mapped_column(
+        Boolean(),
+        nullable=True,
+    )
+
+    git_commit_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
+        nullable=True,
+    )
+
+    git_commit_subject: Mapped[str | None] = mapped_column(
+        String(512),
         nullable=True,
     )
 

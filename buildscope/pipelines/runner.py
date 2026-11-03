@@ -21,6 +21,7 @@ from buildscope.execution import (
     ExecutionTimeoutError,
     execute_command,
 )
+from buildscope.git.history import capture_git_snapshot
 from buildscope.pipelines.attempt_models import StageAttemptRecord
 from buildscope.pipelines.graph import build_pipeline_plan
 from buildscope.pipelines.run_models import PipelineRunRecord, StageRunRecord
@@ -95,6 +96,11 @@ class PipelineRunDetails:
     started_at: datetime | None
     finished_at: datetime | None
     stages: tuple[StageRunDetails, ...]
+    git_commit_sha: str | None = None
+    git_branch: str | None = None
+    git_is_dirty: bool | None = None
+    git_commit_at: datetime | None = None
+    git_commit_subject: str | None = None
 
 
 class PipelineRunner:
@@ -166,6 +172,11 @@ class PipelineRunner:
                 queued_at=record.queued_at,
                 started_at=record.started_at,
                 finished_at=record.finished_at,
+                git_commit_sha=record.git_commit_sha,
+                git_branch=record.git_branch,
+                git_is_dirty=record.git_is_dirty,
+                git_commit_at=record.git_commit_at,
+                git_commit_subject=record.git_commit_subject,
                 stages=tuple(
                     StageRunDetails(
                         id=stage.id,
@@ -362,7 +373,7 @@ class PipelineRunner:
                 self._update_stage(
                     stage_id,
                     RunStatus.CANCELLED,
-                    error_message=("Run cancelled before next attempt."),
+                    error_message="Run cancelled before next attempt.",
                 )
                 return RunStatus.CANCELLED
 
@@ -511,6 +522,9 @@ class PipelineRunner:
 
             root = Path(validate_repository_path(repository.local_path))
 
+        # Capture the checkout before any pipeline stage runs.
+        git_snapshot = capture_git_snapshot(root)
+
         stage_ids: dict[str, UUID] = {}
 
         # Save the pipeline and its stages before execution.
@@ -520,6 +534,11 @@ class PipelineRunner:
                 pipeline_definition_id=saved.id,
                 status=RunStatus.QUEUED.value,
                 queued_at=datetime.now(UTC),
+                git_commit_sha=(git_snapshot.commit_sha if git_snapshot is not None else None),
+                git_branch=(git_snapshot.branch if git_snapshot is not None else None),
+                git_is_dirty=(git_snapshot.is_dirty if git_snapshot is not None else None),
+                git_commit_at=(git_snapshot.commit_at if git_snapshot is not None else None),
+                git_commit_subject=(git_snapshot.subject if git_snapshot is not None else None),
             )
 
             session.add(run)
