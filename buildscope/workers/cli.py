@@ -20,27 +20,20 @@ from buildscope.workers.scheduler import validate_priority
 def parse_utc_datetime(value: str) -> datetime:
     """Parse an ISO 8601 timestamp with an explicit timezone."""
     try:
-        parsed = datetime.fromisoformat(
-            value.replace("Z", "+00:00")
-        )
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise argparse.ArgumentTypeError(
-            "Expected ISO 8601 timestamp, "
-            "for example 2026-11-01T12:00:00Z"
+            "Expected ISO 8601 timestamp, for example 2026-11-01T12:00:00Z"
         ) from exc
 
     if parsed.tzinfo is None:
-        raise argparse.ArgumentTypeError(
-            "Scheduled timestamps require a timezone."
-        )
+        raise argparse.ArgumentTypeError("Scheduled timestamps require a timezone.")
 
     return parsed.astimezone(UTC)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="BuildScope worker queue"
-    )
+    parser = argparse.ArgumentParser(description="BuildScope worker queue")
 
     parser.add_argument(
         "--database",
@@ -118,9 +111,7 @@ def main() -> None:
         except (TypeError, ValueError) as exc:
             parser.error(str(exc))
 
-    engine = create_sqlite_engine(
-        args.database.expanduser().resolve(strict=True)
-    )
+    engine = create_sqlite_engine(args.database.expanduser().resolve(strict=True))
 
     try:
         factory = create_session_factory(engine)
@@ -131,19 +122,12 @@ def main() -> None:
             return
 
         if args.action == "recover":
-            recovered = queue.recover_stale(
-                stale_after_seconds=args.stale_seconds
-            )
+            recovered = queue.recover_stale(stale_after_seconds=args.stale_seconds)
 
             for job_id in recovered:
-                print(
-                    f"Recovered terminal job: {job_id}"
-                )
+                print(f"Recovered terminal job: {job_id}")
 
-            print(
-                f"Recovered {len(recovered)} job(s). "
-                "No jobs were requeued."
-            )
+            print(f"Recovered {len(recovered)} job(s). No jobs were requeued.")
             return
 
         saved = PipelineService(factory).get_version(
@@ -154,28 +138,17 @@ def main() -> None:
 
         plan = build_pipeline_plan(saved.definition)
 
-        print(
-            f"Pipeline: {saved.name} "
-            f"version {saved.version}"
-        )
+        print(f"Pipeline: {saved.name} version {saved.version}")
 
         for stage in plan.ordered_stages:
-            print(
-                f"  {stage.name}: "
-                f"{list(stage.command)!r}"
-            )
+            print(f"  {stage.name}: {list(stage.command)!r}")
 
         if args.action == "preview":
-            print(
-                "Preview only. No job was queued."
-            )
+            print("Preview only. No job was queued.")
             return
 
         if not args.approve:
-            parser.error(
-                "Review commands first; "
-                "--approve is required to enqueue."
-            )
+            parser.error("Review commands first; --approve is required to enqueue.")
 
         job = queue.enqueue_version(
             args.repository,
@@ -186,9 +159,7 @@ def main() -> None:
             not_before=args.not_before,
         )
 
-        print(
-            f"Enqueued job: {job.id} ({job.status})"
-        )
+        print(f"Enqueued job: {job.id} ({job.status})")
         print("Priority:", job.priority)
         print("Not before:", job.not_before)
 

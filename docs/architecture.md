@@ -606,3 +606,24 @@ or replace PipelineRunner.
 
 Current limitations include strict-priority starvation, no persistent
 global scheduling configuration, and no CPU/memory-based resource quotas.
+
+## C++ execution backend
+
+CppStageExecutor implements the standard PipelineRunner stage-executor
+interface.
+
+The adapter serializes command arguments into a length-prefixed binary file.
+
+The native C++20 process loads the arguments, starts the command with
+fork/execvp, captures bounded stdout and stderr, and returns a BSCOPE1
+status record.
+
+The adapter translates native outcomes into existing ExecutionResult and
+ExecutionError types.
+
+The Python coordinator remains responsible for queue ownership, worker
+heartbeats, leases, scheduling, retries and SQLite persistence.
+
+The default Python backend remains available.
+
+Native execution is optional and explicitly configured per Python worker.

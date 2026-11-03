@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
+from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,6 +17,7 @@ from buildscope.execution import (
     ExecutionCancelledError,
     ExecutionError,
     ExecutionRequest,
+    ExecutionResult,
     ExecutionTimeoutError,
     execute_command,
 )
@@ -31,6 +33,17 @@ from buildscope.repositories.paths import validate_repository_path
 
 class ExecutionApprovalRequiredError(PermissionError):
     """A local user must explicitly authorize executing this pipeline."""
+
+
+class StageExecutor(Protocol):
+    """Callable capable of executing one pipeline stage."""
+
+    def __call__(
+        self,
+        request: ExecutionRequest,
+        *,
+        cancel_event: Event | None = None,
+    ) -> ExecutionResult: ...
 
 
 class PipelineRunNotFoundError(LookupError):
@@ -87,8 +100,14 @@ class PipelineRunDetails:
 class PipelineRunner:
     """Execute approved pipeline stages sequentially with retry persistence."""
 
-    def __init__(self, session_factory: SessionFactory) -> None:
+    def __init__(
+        self,
+        session_factory: SessionFactory,
+        *,
+        executor: StageExecutor | None = None,
+    ) -> None:
         self._factory = session_factory
+        self._executor = executor
 
     def get_run(self, run_id: UUID) -> PipelineRunDetails:
         """Load a run with its stages and individual attempt history."""
@@ -343,7 +362,7 @@ class PipelineRunner:
                 self._update_stage(
                     stage_id,
                     RunStatus.CANCELLED,
-                    error_message="Run cancelled before next attempt.",
+                    error_message=("Run cancelled before next attempt."),
                 )
                 return RunStatus.CANCELLED
 
@@ -360,10 +379,16 @@ class PipelineRunner:
             )
 
             try:
-                result = execute_command(
-                    request,
-                    cancel_event=cancel_event,
-                )
+                if self._executor is None:
+                    result = execute_command(
+                        request,
+                        cancel_event=cancel_event,
+                    )
+                else:
+                    result = self._executor(
+                        request,
+                        cancel_event=cancel_event,
+                    )
 
             except ExecutionCancelledError as exc:
                 self._complete_attempt(
@@ -416,7 +441,7 @@ class PipelineRunner:
                     attempt_id,
                     RunStatus.FAILED,
                     stage_status=RunStatus.FAILED,
-                    error_message=f"Unexpected runner error: {exc}",
+                    error_message=(f"Unexpected runner error: {exc}"),
                 )
 
                 raise PipelineRunnerError(f"Unexpected failure executing stage: {exc}") from exc
@@ -514,6 +539,7 @@ class PipelineRunner:
                 session.flush()
 
                 stage_ids[stage.name] = row.id
+
         if on_run_created is not None:
             on_run_created(run_id)
 
@@ -548,7 +574,7 @@ class PipelineRunner:
                 self._update_stage(
                     stage_id,
                     RunStatus.BLOCKED,
-                    error_message="Prerequisite stage did not succeed.",
+                    error_message=("Prerequisite stage did not succeed."),
                 )
 
                 statuses[stage.name] = RunStatus.BLOCKED

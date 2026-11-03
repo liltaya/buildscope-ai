@@ -4,9 +4,9 @@ Revision ID: 0007_job_scheduling
 Revises: 0006_worker_leases
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0007_job_scheduling"
 down_revision = "0006_worker_leases"
@@ -56,6 +56,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise RuntimeError(
-        "Destructive scheduling downgrade is blocked."
-    )
+    raise RuntimeError("Destructive scheduling downgrade is blocked.")

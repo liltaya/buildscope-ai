@@ -23,7 +23,6 @@ from buildscope.repositories.models import Repository
 from buildscope.workers.queue import WorkerQueue
 from buildscope.workers.scheduler import SchedulingPolicy
 
-
 type TestContext = tuple[
     WorkerQueue,
     SessionFactory,
@@ -211,9 +210,7 @@ def test_delayed_job_is_not_eligible(
 ) -> None:
     queue, _, (alpha, beta, _) = context
 
-    future = datetime.now(UTC) + timedelta(
-        hours=2
-    )
+    future = datetime.now(UTC) + timedelta(hours=2)
 
     delayed_id = enqueue(
         queue,
@@ -233,10 +230,7 @@ def test_delayed_job_is_not_eligible(
     assert claim is not None
     assert claim.id == ready_id
 
-    assert (
-        queue.get_job(delayed_id).status
-        == RunStatus.QUEUED
-    )
+    assert queue.get_job(delayed_id).status == RunStatus.QUEUED
 
 
 def test_global_concurrency_limit(
@@ -385,9 +379,7 @@ def test_concurrent_claims_respect_capacity(
             max_running_jobs=1,
         )
 
-    with ThreadPoolExecutor(
-        max_workers=3
-    ) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(
             pool.map(
                 claim,
@@ -395,7 +387,4 @@ def test_concurrent_claims_respect_capacity(
             )
         )
 
-    assert sum(
-        result is not None
-        for result in results
-    ) == 1
+    assert sum(result is not None for result in results) == 1

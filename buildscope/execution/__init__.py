@@ -1,5 +1,6 @@
-"""Standalone local subprocess execution"""
+"""Standalone local subprocess execution backends"""
 
+from buildscope.execution.cpp_executor import CppStageExecutor
 from buildscope.execution.executor import (
     ExecutionCancelledError,
     ExecutionError,
@@ -12,6 +13,7 @@ from buildscope.execution.executor import (
 )
 
 __all__ = [
+    "CppStageExecutor",
     "ExecutionCancelledError",
     "ExecutionError",
     "ExecutionLaunchError",

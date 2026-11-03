@@ -212,3 +212,17 @@
 - Worker pool concurrency configuration.
 - Continuous polling option for scheduled jobs.
 - Scheduler integration and concurrency tests.
+
+### Added
+
+- Native C++20 POSIX stage worker.
+- Versioned worker result protocol.
+- Binary command-argument serialization.
+- C++ process execution with fork and execvp.
+- Native timeout and process-group cancellation.
+- Bounded native stdout and stderr logs.
+- CppStageExecutor Python adapter.
+- Pluggable PipelineRunner execution backend.
+- C++ backend options for Python workers.
+- C++ backend support in the multiprocessing launcher.
+- Native worker integration tests.
