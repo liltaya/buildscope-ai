@@ -701,3 +701,56 @@ structured test cases.
 
 Flaky-test classification and statistical reliability analysis are
 deferred to Part 24.
+
+
+## Test reliability analysis
+
+TestReliabilityService analyzes persisted TestCaseRecord observations
+through the existing execution hierarchy:
+
+    PipelineDefinitionRecord
+          |
+          v
+    PipelineRunRecord
+          |
+          v
+    StageRunRecord
+          |
+          v
+    StageAttemptRecord
+          |
+          v
+    TestReportRecord
+          |
+          v
+    TestCaseRecord
+
+Tests are identified using stage name, suite name, class name,
+and test name.
+
+Reliability analysis is scoped to a single immutable pipeline version.
+
+The service reads terminal pipeline runs and terminal attempts.
+
+Only reports with parse_status PARSED contribute observations.
+
+Two main forms of instability evidence are evaluated:
+
+1. A failed or errored test passes on a later attempt in the same stage.
+2. Separate clean runs on the same branch and commit have conflicting
+   results.
+
+The second rule does not count retries within a single run as
+independent runs.
+
+The analyzer calculates descriptive observed failure rates.
+
+Skipped tests are excluded from the rate denominator.
+
+Mixed results from different Git commits are not automatically classified
+as flaky because they may represent deterministic regressions.
+
+The service does not update pipeline statuses, retry policies, or
+historical test records.
+
+No new migration is required for Part 24.

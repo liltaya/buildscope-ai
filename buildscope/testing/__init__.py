@@ -22,4 +22,17 @@ __all__ = [
     "TestReportSummary",
     "parse_test_report",
     "prepare_test_command",
+    "ReliabilityClassification",
+    "ReliabilityDataError",
+    "TestIdentity",
+    "TestReliabilityService",
+    "TestReliabilitySummary",
 ]
+
+from buildscope.testing.reliability import (
+    ReliabilityClassification,
+    ReliabilityDataError,
+    TestIdentity,
+    TestReliabilityService,
+    TestReliabilitySummary,
+)

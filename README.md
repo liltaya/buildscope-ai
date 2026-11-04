@@ -826,3 +826,78 @@ Structured test reporting is optional and does not change earlier saved
 pipeline versions.
 
 CTest JUnit reporting requires CMake 3.21 or newer.
+
+## Flaky-test detection
+
+BuildScope analyzes structured test-case history from pytest, CTest,
+and GoogleTest.
+
+The analysis is read-only and requires no additional database tables.
+
+The reliability service evaluates one repository, named pipeline, and
+pipeline-definition version at a time.
+
+### Classifications
+
+- RETRY_FLAKY
+- SAME_COMMIT_VARIABILITY
+- MIXED_UNATTRIBUTED
+- CONSISTENT_FAILURE
+- STABLE_PASS
+- INSUFFICIENT_DATA
+
+A retry-flaky candidate has failed and later passed on a retry within
+the same stage run.
+
+Same-commit variability requires conflicting results from separate
+clean runs on the same branch, commit, and pipeline version.
+
+Mixed results across different Git revisions are not automatically
+classified as flaky.
+
+### Metrics
+
+Each test summary contains:
+
+- Total observations
+- Number of distinct pipeline runs
+- Number of clean commit/branch groups
+- Passed, failed, errored, and skipped counts
+- Observed failure rate
+- Retry recovery count
+- Same-commit variability count
+- Latest observed outcome
+- Reliability classification
+
+Failure rate excludes skipped observations.
+
+Retry attempts count as separate observations, but they are correlated.
+The failure rate is descriptive, not an independent probability estimate.
+
+### CLI
+
+    python -m buildscope.testing.flaky_cli \
+      --database data/buildscope.db \
+      --repository <UUID> \
+      --pipeline quality \
+      --version 1
+
+Additional options:
+
+- --branch
+- --max-runs
+- --suspected-only
+- --json
+
+### Limitations
+
+Only successfully parsed test reports contribute observations.
+
+Tests absent from a report are not treated as passes or failures.
+
+A test observed to pass repeatedly is not guaranteed to be reliable.
+
+Flakiness classification identifies instability evidence, not root cause.
+
+The analyzer reads up to 200 completed runs by default and supports
+at most 1000 selected runs and 100000 test-case observations.

@@ -257,3 +257,20 @@
 - Git-linked failed test queries.
 - Retry-aware report ingestion.
 - Test parsing and persistence integration tests.
+
+### Added
+
+- TestReliabilityService for read-only test analytics.
+- TestIdentity and TestReliabilitySummary models.
+- Observed failure-rate calculations.
+- Retry fail-then-pass detection.
+- Same-commit variability detection.
+- Pipeline-version-aware reliability grouping.
+- Branch-specific test reliability analysis.
+- Dirty working-tree exclusion for clean-commit evidence.
+- Stable-pass and consistent-failure classifications.
+- Insufficient-data classification.
+- Read-only flaky-test reporting CLI.
+- JSON reliability report export.
+- Database-backed reliability integration tests.
+- End-to-end pytest retry detection test.
