@@ -11,7 +11,13 @@ stages:
     timeout_seconds: 300
 
   - name: tests
-    command: [ctest, --test-dir, build, --output-on-failure]
+    command: [
+      ctest,
+      --test-dir,
+      build,
+      --output-on-failure
+    ]
     depends_on: [build]
-    retry_count: 1
     timeout_seconds: 300
+    retry_count: 1
+    test_report: ctest

@@ -11,3 +11,5 @@ stages:
     command: [pytest, -q]
     depends_on: [lint, types]
     timeout_seconds: 300
+    retry_count: 1
+    test_report: pytest

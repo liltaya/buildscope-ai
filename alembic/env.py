@@ -12,6 +12,10 @@ from buildscope.pipelines.run_models import (
     StageRunRecord,
 )
 from buildscope.repositories.models import Repository
+from buildscope.testing.models import (
+    TestCaseRecord,
+    TestReportRecord,
+)
 from buildscope.workers.models import (
     WorkerHeartbeatRecord,
     WorkerJobRecord,
@@ -28,6 +32,8 @@ _ = (
     StageAttemptRecord,
     WorkerJobRecord,
     WorkerHeartbeatRecord,
+    TestReportRecord,
+    TestCaseRecord,
 )
 
 target_metadata = Base.metadata

@@ -661,3 +661,43 @@ Historical runs created before migration 0008 do not contain Git metadata.
 
 The worker queue, leases, scheduling, retry engine, and C++ execution
 backend are unchanged.
+
+## Structured test results
+
+The reporting subsystem has three parts.
+
+1. reports.py validates and parses JUnit-style XML.
+2. models.py defines TestReportRecord and TestCaseRecord.
+3. service.py stores and queries test results.
+
+Relationship:
+
+    PipelineRunRecord
+        |
+        v
+    StageRunRecord
+        |
+        v
+    StageAttemptRecord
+        |
+        v
+    TestReportRecord
+        |
+        v
+    TestCaseRecord
+
+Every retry attempt has a separate report path.
+
+PipelineRunner prepares the report-aware command before executing the
+stage and ingests the report when the attempt ends.
+
+A command's exit code remains independent from XML parsing status.
+
+TestReportService can retrieve all cases for an attempt and find
+failed cases together with their stage, attempt number and Git SHA.
+
+Historical attempts created before this milestone do not contain
+structured test cases.
+
+Flaky-test classification and statistical reliability analysis are
+deferred to Part 24.
