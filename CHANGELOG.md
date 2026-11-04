@@ -289,3 +289,20 @@
 - Workload and environment fingerprint grouping.
 - Read-only benchmark analysis CLI.
 - Benchmark parser, persistence, migration and regression tests.
+### Added
+
+- Stage-first-attempt failure dataset contract.
+- FailureExample and DatasetExportResult models.
+- SQLAlchemy historical execution extraction.
+- Leakage-aware historical feature engineering.
+- Command fingerprints without raw argument export.
+- Historical test failure-rate features.
+- Historical benchmark measurement features.
+- First-attempt failure labels.
+- Chronological run-grouped dataset splitting.
+- Train, validation and test CSV exports.
+- Separate provenance export.
+- Versioned dataset manifest.
+- Class-balance and small-dataset warnings.
+- Failure dataset CLI.
+- Dataset integration and leakage-prevention tests.
