@@ -39,14 +39,10 @@ def test_migration_preserves_existing_attempt(
             assert spec.loader is not None
 
             module = importlib.util.module_from_spec(spec)
-
             spec.loader.exec_module(module)
 
             context = MigrationContext.configure(connection)
-
-            # Inject the Alembic Operations instance.
-            # setattr avoids mypy's attr-defined error.
-            module.op = Operations(context)
+            module.op = Operations(context)  # type: ignore[attr-defined]
 
             module.upgrade()
 
