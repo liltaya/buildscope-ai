@@ -1,4 +1,4 @@
-"""SQLAlchemy engine creation for BuildScope."""
+"""SQLAlchemy engine creation for BuildScope"""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ def _enable_sqlite_foreign_keys(
     dbapi_connection: sqlite3.Connection,
     _connection_record: ConnectionPoolEntry,
 ) -> None:
-    """Enable SQLite foreign-key enforcement for one database connection."""
-    previous_autocommit = dbapi_connection.autocommit
+    """Enable SQLite foreign-key enforcement for one database connection"""
 
+    previous_autocommit = dbapi_connection.autocommit
     dbapi_connection.autocommit = True
 
     try:
@@ -23,6 +23,7 @@ def _enable_sqlite_foreign_keys(
 
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=30000")
         finally:
             cursor.close()
     finally:
@@ -34,7 +35,8 @@ def create_sqlite_engine(
     *,
     echo: bool = False,
 ) -> Engine:
-    """Create a configured SQLAlchemy SQLite engine."""
+    """Create a configured SQLAlchemy SQLite engine"""
+
     resolved_path = database_path.expanduser().resolve()
 
     resolved_path.parent.mkdir(
@@ -52,6 +54,7 @@ def create_sqlite_engine(
         echo=echo,
         connect_args={
             "autocommit": False,
+            "timeout": 30.0,
         },
     )
 

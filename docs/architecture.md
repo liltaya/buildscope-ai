@@ -754,3 +754,57 @@ The service does not update pipeline statuses, retry policies, or
 historical test records.
 
 No new migration is required for Part 24.
+
+
+## Benchmark collection and analysis
+
+The benchmark subsystem consists of:
+
+- measure.py: repeated process execution and timing
+- reports.py: report preparation and JSON validation
+- models.py: benchmark persistence
+- service.py: report ingestion
+- analysis.py: Git-linked performance comparisons
+- cli.py: read-only benchmark analysis
+
+Data relationships:
+
+    PipelineDefinitionRecord
+        |
+        v
+    PipelineRunRecord
+        |
+        v
+    StageRunRecord
+        |
+        v
+    StageAttemptRecord
+        |
+        v
+    BenchmarkReportRecord
+        |
+        v
+    BenchmarkSampleRecord
+
+PipelineRunner recognizes optional benchmark configuration on stages.
+
+Each benchmark attempt receives a unique JSON report path.
+
+The same Python or C++ execution backend supervises the benchmark
+wrapper.
+
+The wrapper measures individual whole-process invocations with
+time.perf_counter_ns.
+
+Completed reports are validated and persisted against the stage attempt.
+
+The analysis service compares clean-commit observations with matching
+stage, pipeline version, branch, command fingerprint and environment key.
+
+Median runtimes and median absolute deviations are used for a
+conservative slowdown heuristic.
+
+No independent C++ queue consumer or new worker protocol is introduced.
+
+Formal significance testing, CPU profiling, and performance visualization
+are deferred.

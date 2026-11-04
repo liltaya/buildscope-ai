@@ -33,3 +33,6 @@ models/
 
 # Logs
 *.log
+data/benchmark-demo/
+data/benchmark-analysis.json
+data/execution-logs/

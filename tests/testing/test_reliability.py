@@ -73,26 +73,17 @@ def context(tmp_path: Path) -> Iterator[Context]:
 
     service.create_version(
         repository_id,
-        "name: quality\n"
-        "stages:\n"
-        "  - name: tests\n"
-        "    command: [pytest, -q]\n",
+        "name: quality\nstages:\n  - name: tests\n    command: [pytest, -q]\n",
     )
 
     service.create_version(
         repository_id,
-        "name: quality\n"
-        "stages:\n"
-        "  - name: tests\n"
-        "    command: [pytest, -q, tests]\n",
+        "name: quality\nstages:\n  - name: tests\n    command: [pytest, -q, tests]\n",
     )
 
     service.create_version(
         repository_id,
-        "name: other\n"
-        "stages:\n"
-        "  - name: checks\n"
-        "    command: [pytest, -q]\n",
+        "name: other\nstages:\n  - name: checks\n    command: [pytest, -q]\n",
     )
 
     yield Context(
@@ -123,8 +114,7 @@ def add_run(
     with context.factory.begin() as session:
         definition = session.scalar(
             select(PipelineDefinitionRecord).where(
-                PipelineDefinitionRecord.repository_id
-                == context.repository_id,
+                PipelineDefinitionRecord.repository_id == context.repository_id,
                 PipelineDefinitionRecord.name == pipeline,
                 PipelineDefinitionRecord.version == version,
             )
@@ -137,20 +127,13 @@ def add_run(
             "SKIPPED",
         }
 
-        status = (
-            RunStatus.SUCCEEDED
-            if succeeded
-            else RunStatus.FAILED
-        )
+        status = RunStatus.SUCCEEDED if succeeded else RunStatus.FAILED
 
         run = PipelineRunRecord(
             repository_id=context.repository_id,
             pipeline_definition_id=definition.id,
             status=status.value,
-            queued_at=(
-                datetime(2026, 1, 1, tzinfo=UTC)
-                + timedelta(hours=hour)
-            ),
+            queued_at=(datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=hour)),
             git_commit_sha=sha,
             git_branch=branch,
             git_is_dirty=dirty,
@@ -190,13 +173,9 @@ def add_run(
             report = ReportRecord(
                 stage_attempt_id=attempt.id,
                 kind="pytest",
-                report_path=(
-                    f"/tmp/demo/{run.id}/{attempt_number}.xml"
-                ),
+                report_path=(f"/tmp/demo/{run.id}/{attempt_number}.xml"),
                 parse_status=parse_status,
-                case_count=(
-                    1 if parse_status == "PARSED" else 0
-                ),
+                case_count=(1 if parse_status == "PARSED" else 0),
                 parsed_at=datetime.now(UTC),
             )
 
@@ -266,10 +245,7 @@ def test_conflicting_clean_runs_same_commit(
 
     result = analyze(context)[0]
 
-    assert (
-        result.classification
-        == Category.SAME_COMMIT_VARIABILITY
-    )
+    assert result.classification == Category.SAME_COMMIT_VARIABILITY
 
     assert result.same_commit_mixed_groups == 1
 
@@ -322,10 +298,7 @@ def test_passes_only(context: Context) -> None:
     add_run(context, ["PASSED"], hour=0)
     add_run(context, ["PASSED"], hour=1)
 
-    assert (
-        analyze(context)[0].classification
-        == Category.STABLE_PASS
-    )
+    assert analyze(context)[0].classification == Category.STABLE_PASS
 
 
 def test_failures_only(context: Context) -> None:
@@ -344,10 +317,7 @@ def test_one_failure_is_insufficient(
 ) -> None:
     add_run(context, ["FAILED"])
 
-    assert (
-        analyze(context)[0].classification
-        == Category.INSUFFICIENT_DATA
-    )
+    assert analyze(context)[0].classification == Category.INSUFFICIENT_DATA
 
 
 def test_skips_not_in_failure_rate(
@@ -401,9 +371,7 @@ def test_pipeline_version_isolation(
 
     assert analyze(context)[0].passed == 1
 
-    version_2 = ReliabilityService(
-        context.factory
-    ).analyze(
+    version_2 = ReliabilityService(context.factory).analyze(
         context.repository_id,
         "quality",
         2,
@@ -533,12 +501,8 @@ def test_cli_text_and_json(
 
     assert flaky_main(args) == 0
 
-    assert "RETRY_FLAKY" in (
-        capsys.readouterr().out
-    )
+    assert "RETRY_FLAKY" in (capsys.readouterr().out)
 
     assert flaky_main(args + ["--json"]) == 0
 
-    assert '"retry_recoveries": 1' in (
-        capsys.readouterr().out
-    )
+    assert '"retry_recoveries": 1' in (capsys.readouterr().out)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -30,10 +31,22 @@ from buildscope.workers.queue import (
 def setup(
     tmp_path: Path,
 ) -> Iterator[tuple[Path, WorkerQueue, UUID]]:
-    """Create an isolated database, repository, and pipeline."""
+    """Create an isolated WAL-enabled database, repository, and pipeline."""
 
     db = tmp_path / "worker.db"
+
     upgrade_database(db)
+
+    with sqlite3.connect(
+        db,
+        timeout=30.0,
+    ) as connection:
+        mode = connection.execute("PRAGMA journal_mode=WAL").fetchone()
+
+        assert mode is not None
+        assert mode[0].lower() == "wal", f"Unable to enable SQLite WAL mode: {mode}"
+
+        connection.execute("PRAGMA busy_timeout=30000")
 
     engine = create_sqlite_engine(db)
     factory = create_session_factory(engine)
@@ -268,7 +281,6 @@ def test_spawned_workers_process_queued_jobs(
         f"Worker stderr:\n{result.stderr}"
     )
 
-    # Every successfully completed job must have a run ID.
     run_ids = [job.pipeline_run_id for job in saved_jobs]
 
     assert all(run_id is not None for run_id in run_ids), (

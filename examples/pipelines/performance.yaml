@@ -1,0 +1,14 @@
+name: performance-baseline
+
+stages:
+  - name: benchmark
+    command:
+      - python
+      - -c
+      - |
+        import time
+        time.sleep(0.05)
+    timeout_seconds: 30
+    retry_count: 0
+    benchmark_iterations: 5
+    benchmark_warmups: 1

@@ -14,20 +14,14 @@ from pydantic import (
 
 
 class StageDefinition(BaseModel):
-    """A named stage and its execution configuration."""
+    """A named stage and its execution configuration"""
 
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
     )
-    test_report: (
-        Literal[
-            "pytest",
-            "ctest",
-            "gtest",
-        ]
-        | None
-    ) = None
+
+    test_report: Literal["pytest", "ctest", "gtest"] | None = None
 
     name: str = Field(
         pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$",
@@ -57,6 +51,20 @@ class StageDefinition(BaseModel):
         strict=True,
     )
 
+    benchmark_iterations: int | None = Field(
+        default=None,
+        ge=5,
+        le=30,
+        strict=True,
+    )
+
+    benchmark_warmups: int = Field(
+        default=1,
+        ge=0,
+        le=5,
+        strict=True,
+    )
+
     @field_validator("command")
     @classmethod
     def check_command_parts(
@@ -81,6 +89,15 @@ class StageDefinition(BaseModel):
             raise ValueError("depends_on cannot contain blank names")
 
         return names
+
+    @model_validator(mode="after")
+    def validate_benchmark_configuration(self) -> Self:
+        if self.benchmark_iterations is not None and self.test_report is not None:
+            raise ValueError(
+                "test_report and benchmark_iterations cannot be enabled on the same stage"
+            )
+
+        return self
 
 
 class PipelineDefinition(BaseModel):

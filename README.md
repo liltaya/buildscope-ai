@@ -901,3 +901,93 @@ Flakiness classification identifies instability evidence, not root cause.
 
 The analyzer reads up to 200 completed runs by default and supports
 at most 1000 selected runs and 100000 test-case observations.
+
+
+## Performance benchmarks
+
+BuildScope supports repeated whole-process benchmark measurements.
+
+Benchmark stages are configured with:
+
+- benchmark_iterations
+- benchmark_warmups
+- timeout_seconds
+
+Example:
+
+    benchmark_iterations: 5
+    benchmark_warmups: 1
+
+A benchmark stage executes its configured command repeatedly.
+
+Warmup executions are not included in measurements.
+
+Successful measured executions produce a versioned JSON report
+containing process wall-clock durations.
+
+Benchmark reports and samples are stored in SQLite using:
+
+- benchmark_reports
+- benchmark_samples
+
+Each report belongs to one StageAttemptRecord.
+
+Through the existing execution tables, measurements are linked to
+pipeline versions, Git commits and branches.
+
+### Slowdown detection
+
+BenchmarkAnalysisService compares observations from clean Git revisions
+of the same pipeline version.
+
+Comparisons require matching:
+
+- Stage name
+- Branch
+- Command fingerprint
+- Local environment fingerprint
+- Metric and unit
+
+The service calculates the median runtime and median absolute deviation.
+
+A slowdown is reported only when the increase passes both the configured
+relative threshold and the variability threshold.
+
+Default values:
+
+- Minimum samples per revision: 5
+- Slowdown threshold: 20%
+- Noise multiplier: 3
+
+### CLI
+
+    python -m buildscope.benchmarks.cli \
+      --database data/buildscope.db \
+      --repository <UUID> \
+      --pipeline performance-demo \
+      --version 1
+
+Options:
+
+- --branch
+- --max-runs
+- --threshold
+- --slowdowns-only
+- --json
+
+### Limitations
+
+Measurements include subprocess startup overhead.
+
+Repeated benchmark commands must be safe to execute multiple times.
+
+The detector reports observed slowdowns, not proven causal regressions.
+
+Matching environment fingerprints do not guarantee identical operating
+conditions.
+
+The current algorithm is descriptive and is not a statistical
+hypothesis test.
+
+Benchmark reports created before a crash may require manual recovery
+if the runner did not finish ingesting them.

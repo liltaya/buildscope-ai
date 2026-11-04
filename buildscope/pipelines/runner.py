@@ -12,6 +12,10 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from buildscope.benchmarks.reports import (
+    BenchmarkReportError,
+    prepare_benchmark_command,
+)
 from buildscope.database.session import SessionFactory
 from buildscope.execution import (
     ExecutionCancelledError,
@@ -41,11 +45,11 @@ from buildscope.testing.reports import (
 
 
 class ExecutionApprovalRequiredError(PermissionError):
-    """A local user must explicitly authorize executing this pipeline."""
+    """A local user must explicitly authorize executing this pipeline"""
 
 
 class StageExecutor(Protocol):
-    """Callable capable of executing one pipeline stage."""
+    """Callable capable of executing one pipeline stage"""
 
     def __call__(
         self,
@@ -60,7 +64,7 @@ class PipelineRunNotFoundError(LookupError):
 
 
 class PipelineRunnerError(RuntimeError):
-    """Unexpected execution infrastructure error."""
+    """Unexpected execution infrastructure error"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +116,7 @@ class PipelineRunDetails:
 
 
 class PipelineRunner:
-    """Execute approved pipeline stages sequentially with retry persistence."""
+    """Execute approved pipeline stages sequentially with retry persistence"""
 
     def __init__(
         self,
@@ -124,7 +128,7 @@ class PipelineRunner:
         self._executor = executor
 
     def get_run(self, run_id: UUID) -> PipelineRunDetails:
-        """Load a run with its stages and individual attempt history."""
+        """Load a run with its stages and individual attempt history"""
 
         with self._factory() as session:
             record = session.get(PipelineRunRecord, run_id)
@@ -208,7 +212,7 @@ class PipelineRunner:
         run_id: UUID,
         status: RunStatus,
     ) -> None:
-        """Persist a legal pipeline-level state transition."""
+        """Persist a legal pipeline-level state transition"""
 
         with self._factory.begin() as session:
             record = session.get(
@@ -241,7 +245,7 @@ class PipelineRunner:
         stderr_path: Path | None = None,
         error_message: str | None = None,
     ) -> None:
-        """Persist a stage transition without changing previous attempts."""
+        """Persist a stage transition without changing previous attempts"""
 
         with self._factory.begin() as session:
             record = session.get(
@@ -274,7 +278,7 @@ class PipelineRunner:
         stage_id: UUID,
         attempt_number: int,
     ) -> UUID:
-        """Create and start one durable attempt record."""
+        """Create and start one durable attempt record"""
 
         with self._factory.begin() as session:
             record = StageAttemptRecord(
@@ -318,7 +322,7 @@ class PipelineRunner:
         stderr_path: Path | None = None,
         error_message: str | None = None,
     ) -> None:
-        """Complete an attempt and optionally finalize the stage atomically."""
+        """Complete an attempt and optionally finalize the stage atomically"""
 
         with self._factory.begin() as session:
             attempt = session.get(
@@ -372,6 +376,8 @@ class PipelineRunner:
         cancel_event: Event | None,
         log_directory: Path | None,
         test_report: ReportKind | None = None,
+        benchmark_iterations: int | None = None,
+        benchmark_warmups: int = 1,
     ) -> RunStatus:
         """Execute the allowed attempts for one stage."""
 
@@ -387,9 +393,8 @@ class PipelineRunner:
                 self._update_stage(
                     stage_id,
                     RunStatus.CANCELLED,
-                    error_message=("Run cancelled before next attempt."),
+                    error_message="Run cancelled before next attempt.",
                 )
-
                 return RunStatus.CANCELLED
 
             attempt_id = self._start_attempt(
@@ -409,6 +414,27 @@ class PipelineRunner:
                     )
 
                 except TestReportError as exc:
+                    self._complete_attempt(
+                        attempt_id,
+                        RunStatus.FAILED,
+                        stage_status=RunStatus.FAILED,
+                        error_message=str(exc),
+                    )
+
+                    return RunStatus.FAILED
+
+            benchmark_path: Path | None = None
+
+            if benchmark_iterations is not None:
+                try:
+                    effective_command, benchmark_path = prepare_benchmark_command(
+                        effective_command,
+                        iterations=benchmark_iterations,
+                        warmups=benchmark_warmups,
+                        log_directory=log_directory,
+                    )
+
+                except BenchmarkReportError as exc:
                     self._complete_attempt(
                         attempt_id,
                         RunStatus.FAILED,
@@ -473,7 +499,6 @@ class PipelineRunner:
                 return RunStatus.CANCELLED if interrupted else RunStatus.TIMED_OUT
 
             except ExecutionError as exc:
-                # Infrastructure failures are not retried.
                 self._complete_attempt(
                     attempt_id,
                     RunStatus.FAILED,
@@ -488,7 +513,7 @@ class PipelineRunner:
                     attempt_id,
                     RunStatus.FAILED,
                     stage_status=RunStatus.FAILED,
-                    error_message=(f"Unexpected runner error: {exc}"),
+                    error_message=f"Unexpected runner error: {exc}",
                 )
 
                 raise PipelineRunnerError(f"Unexpected failure executing stage: {exc}") from exc
@@ -522,6 +547,7 @@ class PipelineRunner:
 
             finally:
                 if test_report is not None and report_path is not None:
+                    # Local import prevents circular imports.
                     from buildscope.testing.service import TestReportService
 
                     TestReportService(self._factory).ingest(
@@ -530,7 +556,15 @@ class PipelineRunner:
                         report_path,
                     )
 
-        raise AssertionError("Attempt loop exhausted without a terminal state.")
+                if benchmark_path is not None:
+                    from buildscope.benchmarks.service import BenchmarkService
+
+                    BenchmarkService(self._factory).ingest(
+                        attempt_id,
+                        benchmark_path,
+                    )
+
+        raise AssertionError("Attempt loop exhausted without a terminal state")
 
     def run_version(
         self,
@@ -543,11 +577,11 @@ class PipelineRunner:
         log_directory: Path | None = None,
         on_run_created: Callable[[UUID], None] | None = None,
     ) -> PipelineRunDetails:
-        """Execute a saved pipeline using its configured retry policies."""
+        """Execute a saved pipeline using its configured retry policies"""
 
         if not approved:
             raise ExecutionApprovalRequiredError(
-                "Review the pipeline commands and pass approved=True explicitly."
+                "Review the pipeline commands and pass approved=True explicitly"
             )
 
         saved = PipelineService(self._factory).get_version(
@@ -638,7 +672,7 @@ class PipelineRunner:
                 self._update_stage(
                     stage_id,
                     RunStatus.BLOCKED,
-                    error_message=("Prerequisite stage did not succeed."),
+                    error_message="Prerequisite stage did not succeed.",
                 )
 
                 statuses[stage.name] = RunStatus.BLOCKED
@@ -654,6 +688,8 @@ class PipelineRunner:
                     cancel_event=cancel_event,
                     log_directory=log_directory,
                     test_report=stage.test_report,
+                    benchmark_iterations=stage.benchmark_iterations,
+                    benchmark_warmups=stage.benchmark_warmups,
                 )
 
             except PipelineRunnerError as exc:

@@ -274,3 +274,18 @@
 - JSON reliability report export.
 - Database-backed reliability integration tests.
 - End-to-end pytest retry detection test.
+
+### Added
+
+- Whole-process performance benchmark wrapper.
+- Configurable benchmark repetitions and warmups.
+- Per-attempt benchmark JSON reports.
+- BenchmarkReportRecord and BenchmarkSampleRecord.
+- Alembic migration 0010.
+- BenchmarkService for report ingestion.
+- BenchmarkAnalysisService for Git revision comparisons.
+- Median and MAD performance analysis.
+- Configurable slowdown thresholds.
+- Workload and environment fingerprint grouping.
+- Read-only benchmark analysis CLI.
+- Benchmark parser, persistence, migration and regression tests.

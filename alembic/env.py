@@ -3,6 +3,10 @@
 from pathlib import Path
 
 from alembic import context
+from buildscope.benchmarks.models import (
+    BenchmarkReportRecord,
+    BenchmarkSampleRecord,
+)
 from buildscope.database.base import Base
 from buildscope.database.engine import create_sqlite_engine
 from buildscope.pipelines.attempt_models import StageAttemptRecord
@@ -23,7 +27,7 @@ from buildscope.workers.models import (
 
 config = context.config
 
-# Import all ORM models before accessing metadata.
+
 _ = (
     Repository,
     PipelineDefinitionRecord,
@@ -34,6 +38,8 @@ _ = (
     WorkerHeartbeatRecord,
     TestReportRecord,
     TestCaseRecord,
+    BenchmarkReportRecord,
+    BenchmarkSampleRecord,
 )
 
 target_metadata = Base.metadata
