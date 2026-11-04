@@ -239,3 +239,21 @@
 - Pipeline-version-aware comparisons.
 - Read-only Git history CLI.
 - Git snapshot and regression detection tests.
+
+### Added
+
+- Bounded JUnit-style XML parser.
+- pytest structured test reporting.
+- CTest JUnit result support.
+- GoogleTest XML result support.
+- Per-attempt unique test report files.
+- TestReportRecord SQLAlchemy model.
+- TestCaseRecord SQLAlchemy model.
+- Alembic migration 0009.
+- TestReportService.
+- Missing and invalid report tracking.
+- Individual test execution durations.
+- Failure diagnostics.
+- Git-linked failed test queries.
+- Retry-aware report ingestion.
+- Test parsing and persistence integration tests.

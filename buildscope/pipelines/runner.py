@@ -24,12 +24,20 @@ from buildscope.execution import (
 from buildscope.git.history import capture_git_snapshot
 from buildscope.pipelines.attempt_models import StageAttemptRecord
 from buildscope.pipelines.graph import build_pipeline_plan
-from buildscope.pipelines.run_models import PipelineRunRecord, StageRunRecord
+from buildscope.pipelines.run_models import (
+    PipelineRunRecord,
+    StageRunRecord,
+)
 from buildscope.pipelines.service import PipelineService
 from buildscope.pipelines.state import RunStatus, assert_transition
 from buildscope.repositories.errors import RepositoryNotFoundError
 from buildscope.repositories.models import Repository
 from buildscope.repositories.paths import validate_repository_path
+from buildscope.testing.reports import (
+    ReportKind,
+    TestReportError,
+    prepare_test_command,
+)
 
 
 class ExecutionApprovalRequiredError(PermissionError):
@@ -117,6 +125,7 @@ class PipelineRunner:
 
     def get_run(self, run_id: UUID) -> PipelineRunDetails:
         """Load a run with its stages and individual attempt history."""
+
         with self._factory() as session:
             record = session.get(PipelineRunRecord, run_id)
 
@@ -200,6 +209,7 @@ class PipelineRunner:
         status: RunStatus,
     ) -> None:
         """Persist a legal pipeline-level state transition."""
+
         with self._factory.begin() as session:
             record = session.get(
                 PipelineRunRecord,
@@ -232,6 +242,7 @@ class PipelineRunner:
         error_message: str | None = None,
     ) -> None:
         """Persist a stage transition without changing previous attempts."""
+
         with self._factory.begin() as session:
             record = session.get(
                 StageRunRecord,
@@ -264,6 +275,7 @@ class PipelineRunner:
         attempt_number: int,
     ) -> UUID:
         """Create and start one durable attempt record."""
+
         with self._factory.begin() as session:
             record = StageAttemptRecord(
                 stage_run_id=stage_id,
@@ -273,6 +285,7 @@ class PipelineRunner:
 
             session.add(record)
             session.flush()
+
             attempt_id = record.id
 
         with self._factory.begin() as session:
@@ -306,6 +319,7 @@ class PipelineRunner:
         error_message: str | None = None,
     ) -> None:
         """Complete an attempt and optionally finalize the stage atomically."""
+
         with self._factory.begin() as session:
             attempt = session.get(
                 StageAttemptRecord,
@@ -327,7 +341,6 @@ class PipelineRunner:
             attempt.stderr_path = str(stderr_path) if stderr_path is not None else None
             attempt.error_message = error_message
 
-            # An intermediate failed attempt does not finish the stage.
             if stage_status is not None:
                 stage = session.get(
                     StageRunRecord,
@@ -358,8 +371,10 @@ class PipelineRunner:
         retry_count: int,
         cancel_event: Event | None,
         log_directory: Path | None,
+        test_report: ReportKind | None = None,
     ) -> RunStatus:
         """Execute the allowed attempts for one stage."""
+
         self._update_stage(
             stage_id,
             RunStatus.RUNNING,
@@ -368,13 +383,13 @@ class PipelineRunner:
         total_attempts = retry_count + 1
 
         for number in range(1, total_attempts + 1):
-            # Never start another attempt after cancellation.
             if cancel_event is not None and cancel_event.is_set():
                 self._update_stage(
                     stage_id,
                     RunStatus.CANCELLED,
-                    error_message="Run cancelled before next attempt.",
+                    error_message=("Run cancelled before next attempt."),
                 )
+
                 return RunStatus.CANCELLED
 
             attempt_id = self._start_attempt(
@@ -382,8 +397,29 @@ class PipelineRunner:
                 number,
             )
 
+            effective_command = command
+            report_path: Path | None = None
+
+            if test_report is not None:
+                try:
+                    effective_command, report_path = prepare_test_command(
+                        command,
+                        test_report,
+                        log_directory,
+                    )
+
+                except TestReportError as exc:
+                    self._complete_attempt(
+                        attempt_id,
+                        RunStatus.FAILED,
+                        stage_status=RunStatus.FAILED,
+                        error_message=str(exc),
+                    )
+
+                    return RunStatus.FAILED
+
             request = ExecutionRequest(
-                command=command,
+                command=effective_command,
                 repository_root=root,
                 timeout_seconds=timeout_seconds,
                 log_directory=log_directory,
@@ -484,6 +520,16 @@ class PipelineRunner:
 
                 return stage_status
 
+            finally:
+                if test_report is not None and report_path is not None:
+                    from buildscope.testing.service import TestReportService
+
+                    TestReportService(self._factory).ingest(
+                        attempt_id,
+                        test_report,
+                        report_path,
+                    )
+
         raise AssertionError("Attempt loop exhausted without a terminal state.")
 
     def run_version(
@@ -498,6 +544,7 @@ class PipelineRunner:
         on_run_created: Callable[[UUID], None] | None = None,
     ) -> PipelineRunDetails:
         """Execute a saved pipeline using its configured retry policies."""
+
         if not approved:
             raise ExecutionApprovalRequiredError(
                 "Review the pipeline commands and pass approved=True explicitly."
@@ -522,12 +569,10 @@ class PipelineRunner:
 
             root = Path(validate_repository_path(repository.local_path))
 
-        # Capture the checkout before any pipeline stage runs.
         git_snapshot = capture_git_snapshot(root)
 
         stage_ids: dict[str, UUID] = {}
 
-        # Save the pipeline and its stages before execution.
         with self._factory.begin() as session:
             run = PipelineRunRecord(
                 repository_id=repository_id,
@@ -543,6 +588,7 @@ class PipelineRunner:
 
             session.add(run)
             session.flush()
+
             run_id = run.id
 
             for position, stage in enumerate(plan.ordered_stages):
@@ -586,7 +632,6 @@ class PipelineRunner:
                 statuses[stage.name] = RunStatus.CANCELLED
                 continue
 
-            # Dependents wait for final success, including all retries.
             if unexpected is not None or any(
                 statuses[dependency] != RunStatus.SUCCEEDED for dependency in stage.depends_on
             ):
@@ -608,6 +653,7 @@ class PipelineRunner:
                     retry_count=stage.retry_count,
                     cancel_event=cancel_event,
                     log_directory=log_directory,
+                    test_report=stage.test_report,
                 )
 
             except PipelineRunnerError as exc:

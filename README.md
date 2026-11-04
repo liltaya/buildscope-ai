@@ -770,3 +770,59 @@ classified as branch regressions.
 Detection identifies an observed failure window, not the causal commit.
 
 Git bisect and automated culprit identification are not implemented.
+
+## Automated test result parsing
+
+BuildScope stores structured test results from pytest, CTest, and GoogleTest.
+
+Supported report modes:
+
+- pytest
+- ctest
+- gtest
+
+Configure a stage with:
+
+    test_report: pytest
+
+For configured stages, BuildScope creates a unique XML report path for
+each execution attempt and supplies the corresponding framework flag.
+
+Results are persisted in:
+
+- test_reports
+- test_cases
+
+Individual cases store their suite, class, name, outcome, duration and
+diagnostic message.
+
+Outcomes are:
+
+- PASSED
+- FAILED
+- ERROR
+- SKIPPED
+
+Reports use these parsing statuses:
+
+- PARSED
+- MISSING
+- INVALID
+
+Missing or malformed XML is recorded rather than interpreted as success.
+
+Each report belongs to one StageAttemptRecord.
+
+Through the existing execution tables, cases can be linked to their
+pipeline run, Git commit and retry attempt.
+
+Limits:
+
+- Maximum XML size: 8 MiB
+- Maximum cases per report: 10000
+- Maximum stored diagnostic length: 2048 characters
+
+Structured test reporting is optional and does not change earlier saved
+pipeline versions.
+
+CTest JUnit reporting requires CMake 3.21 or newer.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -20,6 +20,14 @@ class StageDefinition(BaseModel):
         extra="forbid",
         frozen=True,
     )
+    test_report: (
+        Literal[
+            "pytest",
+            "ctest",
+            "gtest",
+        ]
+        | None
+    ) = None
 
     name: str = Field(
         pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$",
