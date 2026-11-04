@@ -1,4 +1,4 @@
-"""Part 18 integration tests using the real migrations and PipelineRunner."""
+"""Part 18 integration tests using the real migrations and PipelineRunner"""
 
 from __future__ import annotations
 
@@ -11,7 +11,10 @@ from uuid import UUID
 
 import pytest
 
-from buildscope.database import create_session_factory, create_sqlite_engine
+from buildscope.database import (
+    create_session_factory,
+    create_sqlite_engine,
+)
 from buildscope.database.migrate import upgrade_database
 from buildscope.pipelines.service import PipelineService
 from buildscope.pipelines.state import RunStatus
@@ -24,36 +27,48 @@ from buildscope.workers.queue import (
 
 
 @pytest.fixture
-def setup(tmp_path: Path) -> Iterator[tuple[Path, WorkerQueue, UUID]]:
+def setup(
+    tmp_path: Path,
+) -> Iterator[tuple[Path, WorkerQueue, UUID]]:
+    """Create an isolated database, repository, and pipeline."""
+
     db = tmp_path / "worker.db"
     upgrade_database(db)
 
     engine = create_sqlite_engine(db)
     factory = create_session_factory(engine)
 
-    with factory.begin() as session:
-        repo = Repository(
-            name="worker-example",
-            local_path=str(tmp_path),
+    try:
+        with factory.begin() as session:
+            repo = Repository(
+                name="worker-example",
+                local_path=str(tmp_path),
+            )
+
+            session.add(repo)
+            session.flush()
+
+            repo_id = repo.id
+
+        PipelineService(factory).create_version(
+            repo_id,
+            "name: quality\n"
+            "stages:\n"
+            "  - name: checks\n"
+            f"    command: [{sys.executable!r}, -c, 'print(17)']\n",
         )
-        session.add(repo)
-        session.flush()
-        repo_id = repo.id
 
-    PipelineService(factory).create_version(
-        repo_id,
-        "name: quality\nstages:\n  - name: checks\n"
-        f"    command: [{sys.executable!r}, -c, 'print(17)']\n",
-    )
+        yield db, WorkerQueue(factory), repo_id
 
-    yield db, WorkerQueue(factory), repo_id
-
-    engine.dispose()
+    finally:
+        engine.dispose()
 
 
 def test_approval_required(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Reject jobs without explicit execution approval."""
+
     _, q, repository_id = setup
 
     with pytest.raises(ExecutionApprovalRequiredError):
@@ -68,6 +83,8 @@ def test_approval_required(
 def test_atomic_claim_and_ownership(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Ensure jobs are claimed atomically and ownership is enforced."""
+
     _, q, repository_id = setup
 
     job = q.enqueue_version(
@@ -81,9 +98,9 @@ def test_atomic_claim_and_ownership(
 
     assert claimed is not None
     assert claimed.id == job.id
+
     assert q.claim_next("worker-b") is None
 
-    # A different worker cannot complete the claimed job.
     with pytest.raises(JobOwnershipError):
         q.complete(
             job.id,
@@ -92,7 +109,6 @@ def test_atomic_claim_and_ownership(
             claim_token=claimed.claim_token,
         )
 
-    # The owning worker completes using its claim token.
     q.complete(
         job.id,
         "worker-a",
@@ -100,12 +116,16 @@ def test_atomic_claim_and_ownership(
         claim_token=claimed.claim_token,
     )
 
-    assert q.get_job(job.id).status == RunStatus.SUCCEEDED
+    saved = q.get_job(job.id)
+
+    assert saved.status == RunStatus.SUCCEEDED
 
 
 def test_two_sessions_do_not_claim_same_job(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Ensure concurrent database sessions cannot claim one job twice."""
+
     db, q, repository_id = setup
 
     q.enqueue_version(
@@ -119,12 +139,21 @@ def test_two_sessions_do_not_claim_same_job(
         engine = create_sqlite_engine(db)
 
         try:
-            return WorkerQueue(create_session_factory(engine)).claim_next(worker_id)
+            factory = create_session_factory(engine)
+            worker_queue = WorkerQueue(factory)
+
+            return worker_queue.claim_next(worker_id)
+
         finally:
             engine.dispose()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(claim, ("a", "b")))
+        results = list(
+            pool.map(
+                claim,
+                ("a", "b"),
+            )
+        )
 
     assert sum(item is not None for item in results) == 1
 
@@ -132,6 +161,8 @@ def test_two_sessions_do_not_claim_same_job(
 def test_worker_process_persists_run(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Verify one subprocess worker executes and persists a pipeline run."""
+
     db, q, repository_id = setup
 
     job = q.enqueue_version(
@@ -153,19 +184,35 @@ def test_worker_process_persists_run(
         capture_output=True,
         text=True,
         timeout=45,
+        check=False,
     )
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, (
+        f"Worker process exited with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
 
     saved = q.get_job(job.id)
 
-    assert saved.status == RunStatus.SUCCEEDED
+    assert saved.status == RunStatus.SUCCEEDED, (
+        f"Worker job failed:\n"
+        f"job_id={saved.id}\n"
+        f"status={saved.status.value}\n"
+        f"error={saved.error_message}\n"
+        f"pipeline_run_id={saved.pipeline_run_id}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
     assert saved.pipeline_run_id is not None
 
 
 def test_spawned_workers_process_queued_jobs(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Verify spawned workers process queued jobs and persist their runs."""
+
     db, q, repository_id = setup
 
     jobs = [
@@ -191,18 +238,55 @@ def test_spawned_workers_process_queued_jobs(
         capture_output=True,
         text=True,
         timeout=90,
+        check=False,
     )
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, (
+        f"Worker launcher exited with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
 
-    assert all(q.get_job(j.id).status == RunStatus.SUCCEEDED for j in jobs)
+    saved_jobs = [q.get_job(job.id) for job in jobs]
 
-    assert len({q.get_job(j.id).pipeline_run_id for j in jobs}) == len(jobs)
+    failures = [
+        {
+            "id": str(job.id),
+            "status": job.status.value,
+            "error": job.error_message,
+            "pipeline_run_id": (
+                str(job.pipeline_run_id) if job.pipeline_run_id is not None else None
+            ),
+        }
+        for job in saved_jobs
+        if job.status != RunStatus.SUCCEEDED
+    ]
+
+    assert not failures, (
+        f"Worker job failures: {failures}\n"
+        f"Worker stdout:\n{result.stdout}\n"
+        f"Worker stderr:\n{result.stderr}"
+    )
+
+    # Every successfully completed job must have a run ID.
+    run_ids = [job.pipeline_run_id for job in saved_jobs]
+
+    assert all(run_id is not None for run_id in run_ids), (
+        f"One or more jobs have no pipeline run ID: {run_ids}"
+    )
+
+    assert len(set(run_ids)) == len(jobs), (
+        "Multiple jobs reference the same pipeline run.\n"
+        f"Job IDs: {[str(job.id) for job in saved_jobs]}\n"
+        f"Run IDs: {run_ids}"
+    )
 
 
 def test_same_repository_is_serialized(
     setup: tuple[Path, WorkerQueue, UUID],
 ) -> None:
+    """Ensure two workers do not execute jobs for one repository concurrently."""
+
     _, q, repository_id = setup
 
     first = q.enqueue_version(
@@ -224,10 +308,8 @@ def test_same_repository_is_serialized(
     assert first_claim is not None
     assert first_claim.id == first.id
 
-    # Another worker cannot claim a job for the same repository.
     assert q.claim_next("b") is None
 
-    # Complete the first job with its claim token.
     q.complete(
         first.id,
         "a",
@@ -235,7 +317,6 @@ def test_same_repository_is_serialized(
         claim_token=first_claim.claim_token,
     )
 
-    # The second job can now be claimed.
     next_claim = q.claim_next("b")
 
     assert next_claim is not None

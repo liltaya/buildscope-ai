@@ -16,7 +16,9 @@ from buildscope.pipelines.runner import PipelineRunner
 from buildscope.pipelines.service import PipelineService
 from buildscope.pipelines.state import RunStatus
 from buildscope.repositories.models import Repository
-from buildscope.testing.service import TestReportService
+from buildscope.testing.service import (
+    TestReportService as ReportService,
+)
 
 
 def test_retry_preserves_both_test_reports(
@@ -99,7 +101,7 @@ def test_retry_preserves_both_test_reports(
             RunStatus.SUCCEEDED,
         ]
 
-        reports = TestReportService(factory)
+        reports = ReportService(factory)
 
         first = stage.attempts[0]
         second = stage.attempts[1]

@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0,<7.0",
     "sqlalchemy>=2.0,<3.0",
     "uvicorn>=0.30",
+    "defusedxml>=0.7.1,<1.0",
 ]
 
 
