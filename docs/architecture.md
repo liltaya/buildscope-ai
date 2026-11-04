@@ -808,3 +808,47 @@ No independent C++ queue consumer or new worker protocol is introduced.
 
 Formal significance testing, CPU profiling, and performance visualization
 are deferred.
+
+
+## Failure dataset generation
+
+The datasets package converts persisted execution history into a
+versioned machine-learning dataset.
+
+The stage-first-attempt-v1 contract produces one labeled example for
+each eligible first stage execution attempt.
+
+Source tables:
+
+- pipeline_definitions
+- pipeline_runs
+- stage_runs
+- stage_attempts
+- test_reports
+- test_cases
+- benchmark_reports
+- benchmark_samples
+
+The dataset builder joins the execution hierarchy and calculates
+historical features using a strict temporal cutoff.
+
+A prior result contributes to a target only when:
+
+    prior_run.finished_at < target_run.queued_at
+
+Historical aggregates are keyed by repository, pipeline name,
+pipeline version, stage name, and command fingerprint.
+
+The export writes three chronological, run-grouped CSV splits.
+
+A separate provenance file stores database and Git identifiers.
+
+The manifest records feature names, label definitions, split counts,
+class counts, export version, and limitations.
+
+Dataset export does not modify SQLite records.
+
+No new database migration is introduced.
+
+Machine-learning preprocessing, model selection and evaluation are
+deferred

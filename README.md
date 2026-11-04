@@ -991,3 +991,80 @@ hypothesis test.
 
 Benchmark reports created before a crash may require manual recovery
 if the runner did not finish ingesting them.
+
+
+## Failure prediction datasets
+
+BuildScope exports historical pipeline execution data for machine-learning
+experiments.
+
+Part 26 introduces the stage-first-attempt-v1 dataset contract.
+
+Each row represents the first execution attempt of one pipeline stage.
+
+The binary target is:
+
+- 0: SUCCEEDED
+- 1: FAILED or TIMED_OUT
+
+Cancelled and blocked attempts are excluded.
+
+Later retries do not become separate training examples.
+
+### Features
+
+Features include:
+
+- Pipeline and stage configuration
+- Command fingerprint and executable
+- Git checkout state
+- Scheduling context
+- Historical failure and timeout rates
+- Historical retry recoveries
+- Historical parsed test results
+- Historical benchmark measurements
+
+Historical features are calculated only from runs completed strictly
+before the target pipeline was queued.
+
+Current attempt results are never included as model features.
+
+### Export
+
+    python -m buildscope.datasets.cli \
+      --database data/buildscope.db \
+      --output data/datasets/failure-v1
+
+Outputs:
+
+- train.csv
+- validation.csv
+- test.csv
+- provenance.csv
+- manifest.json
+
+The split is chronological by pipeline queue time and grouped by run.
+
+All stages of one run remain within one partition.
+
+Provenance identifiers and example_id are not model features.
+
+A new export must use a new output directory.
+
+### Limitations
+
+The dataset contains observed historical outcomes, not causal labels.
+
+Splitting by pipeline runs does not eliminate every temporal or
+cross-commit dependence.
+
+Overlapping runs may require a temporal embargo.
+
+Past benchmark measurements may originate from different host conditions.
+
+Missing numeric rates are represented as empty CSV fields.
+
+With fewer than three distinct runs, validation and test partitions
+remain empty.
+
+Training and model evaluation begin in Part 27.
