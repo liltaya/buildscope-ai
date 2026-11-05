@@ -306,3 +306,22 @@
 - Class-balance and small-dataset warnings.
 - Failure dataset CLI.
 - Dataset integration and leakage-prevention tests.
+### Added
+
+- Offline first-attempt failure classifier.
+- Scikit-learn preprocessing and classification pipeline.
+- Categorical one-hot encoding.
+- Missing numeric-value imputation.
+- Feature scaling.
+- Class-balanced logistic regression.
+- Fixed-seed training.
+- Part 26 dataset schema validation.
+- Pipeline-run split contamination checks.
+- Chronological holdout validation.
+- Precision, recall, F1, ROC AUC, and Brier evaluation.
+- Constant prior-probability baseline comparison.
+- Versioned model artifact export.
+- Source dataset and model checksums.
+- Model metadata and dependency tracking.
+- Model training CLI.
+- Twelve ML training integration tests.

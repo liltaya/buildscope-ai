@@ -1068,3 +1068,79 @@ With fewer than three distinct runs, validation and test partitions
 remain empty.
 
 Training and model evaluation begin in Part 27.
+
+
+## Machine-learning failure classification
+
+BuildScope trains a binary first-attempt failure classifier using
+the stage-first-attempt-v1 dataset from Part 26.
+
+Labels:
+
+- 0: First attempt succeeded
+- 1: First attempt failed or timed out
+
+The model is a scikit-learn LogisticRegression estimator with:
+
+- One-hot categorical encoding
+- Missing numeric-value imputation
+- Numeric scaling
+- Balanced training weights
+- Fixed random seed 42
+- Fixed classification threshold 0.50
+
+The full preprocessing and classification pipeline is fitted
+only on training data.
+
+Validation and test partitions are transformed without refitting.
+
+### Training
+
+Install the ML dependencies:
+
+    python -m pip install "scikit-learn>=1.6,<2.0" \
+      "joblib>=1.4,<2.0"
+
+Train:
+
+    python -m buildscope.ml.cli \
+      --dataset data/datasets/failure-v1 \
+      --output data/models/failure-logreg-v1
+
+Output files:
+
+- model.joblib
+- metrics.json
+- metadata.json
+
+The training process also evaluates a constant prior-probability
+baseline using the training failure rate.
+
+Metrics include accuracy, precision, recall, F1, ROC AUC where
+defined, Brier score, and confusion-matrix counts.
+
+### Dataset validation
+
+Training rejects incompatible feature schemas, invalid labels,
+incorrect manifest counts, missing provenance, contaminated run
+splits, invalid numeric values, and insufficient data.
+
+At least 10 training examples with both classes and nonempty
+validation and test partitions are required.
+
+### Limitations
+
+This is an offline baseline model, not a production inference service.
+
+Training probabilities may require calibration.
+
+Small holdout datasets produce unstable evaluation metrics.
+
+The fixed 0.50 threshold has not been optimized for business costs.
+
+The categorical command fingerprint can encourage memorization of
+frequent commands rather than generalizable failure patterns.
+
+Model artifacts must not be loaded from untrusted sources.
+
+Model inference and integration with BuildScope workers are deferred.

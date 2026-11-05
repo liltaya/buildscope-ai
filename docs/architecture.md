@@ -852,3 +852,48 @@ No new database migration is introduced.
 
 Machine-learning preprocessing, model selection and evaluation are
 deferred
+
+## Failure classification model
+
+The ML training layer consumes the CSV dataset contract.
+
+Components:
+
+- training.py: validation, preprocessing, training, evaluation, persistence
+- cli.py: offline training entry point
+
+The training data is split chronologically by pipeline run.
+
+Provenance is inspected to verify grouping and chronological boundaries,
+but its identifiers are not model inputs.
+
+The model pipeline includes:
+
+1. OneHotEncoder for categorical fields
+2. SimpleImputer for missing numeric fields
+3. StandardScaler for numeric fields
+4. LogisticRegression with class_weight balanced
+
+Only train.csv is used to fit preprocessing and classifier parameters.
+
+validation.csv and test.csv are used exclusively for evaluation.
+
+The classifier is compared against a constant-probability baseline.
+
+The fixed decision threshold is 0.50.
+
+Model artifacts are saved to a new versioned directory.
+
+The output includes:
+
+- Fitted model
+- Validation and test metrics
+- Training metadata
+- Dataset file SHA-256 hashes
+- Package versions
+- Model artifact SHA-256 hash
+
+The model does not access SQLite directly.
+
+Online prediction and model serving belong to Part 28.
+
