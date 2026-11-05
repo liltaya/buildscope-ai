@@ -19,9 +19,13 @@ def test_migration_preserves_existing_attempt(
 
     try:
         with engine.begin() as connection:
-            connection.execute(text("CREATE TABLE stage_attempts (id TEXT PRIMARY KEY)"))
+            connection.execute(
+                text("CREATE TABLE stage_attempts (id TEXT PRIMARY KEY)")
+            )
 
-            connection.execute(text("INSERT INTO stage_attempts (id) VALUES ('existing')"))
+            connection.execute(
+                text("INSERT INTO stage_attempts (id) VALUES ('existing')")
+            )
 
             migration_path = (
                 Path(__file__).resolve().parents[2]
@@ -46,7 +50,9 @@ def test_migration_preserves_existing_attempt(
 
             module.upgrade()
 
-            existing_id = connection.execute(text("SELECT id FROM stage_attempts")).scalar_one()
+            existing_id = connection.execute(
+                text("SELECT id FROM stage_attempts")
+            ).scalar_one()
 
             assert existing_id == "existing"
 

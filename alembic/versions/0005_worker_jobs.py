@@ -15,7 +15,10 @@ def upgrade() -> None:
         "worker_jobs",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
         sa.Column(
-            "repository_id", sa.Uuid(as_uuid=True), sa.ForeignKey("repositories.id"), nullable=False
+            "repository_id",
+            sa.Uuid(as_uuid=True),
+            sa.ForeignKey("repositories.id"),
+            nullable=False,
         ),
         sa.Column(
             "pipeline_definition_id",
@@ -36,7 +39,9 @@ def upgrade() -> None:
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
     )
-    op.create_index("ix_worker_jobs_status_queued", "worker_jobs", ["status", "queued_at"])
+    op.create_index(
+        "ix_worker_jobs_status_queued", "worker_jobs", ["status", "queued_at"]
+    )
 
 
 def downgrade() -> None:

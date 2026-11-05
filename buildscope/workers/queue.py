@@ -178,7 +178,9 @@ class WorkerQueue:
                     )
                 )
             elif row.status == "ACTIVE" and row.pid != actual_pid:
-                raise JobOwnershipError("Worker identifier is already active for another PID")
+                raise JobOwnershipError(
+                    "Worker identifier is already active for another PID"
+                )
             else:
                 row.pid = actual_pid
                 row.status = "ACTIVE"
@@ -209,7 +211,9 @@ class WorkerQueue:
     ) -> JobDetails:
         """Persist one approved job with scheduling metadata."""
         if not approved:
-            raise ExecutionApprovalRequiredError("Review commands and approve before enqueuing.")
+            raise ExecutionApprovalRequiredError(
+                "Review commands and approve before enqueuing."
+            )
 
         validate_priority(priority)
         earliest = normalize_not_before(not_before)
@@ -389,7 +393,9 @@ class WorkerQueue:
                     claim_token,
                     now,
                 ):
-                    raise JobOwnershipError("Lease is lost, expired, or owned by another worker")
+                    raise JobOwnershipError(
+                        "Lease is lost, expired, or owned by another worker"
+                    )
 
                 assert job is not None
 
@@ -494,7 +500,10 @@ class WorkerQueue:
                 ):
                     raise JobOwnershipError("Run does not match this job")
 
-                if job.pipeline_run_id is not None and job.pipeline_run_id != pipeline_run_id:
+                if (
+                    job.pipeline_run_id is not None
+                    and job.pipeline_run_id != pipeline_run_id
+                ):
                     raise JobOwnershipError("Job is linked to another run")
 
                 job.pipeline_run_id = pipeline_run_id
@@ -516,7 +525,10 @@ class WorkerQueue:
         stale_after_seconds: int = 30,
     ) -> list[UUID]:
         """Mark abandoned local jobs terminal; never replay."""
-        if isinstance(stale_after_seconds, bool) or not 3 <= stale_after_seconds <= 86400:
+        if (
+            isinstance(stale_after_seconds, bool)
+            or not 3 <= stale_after_seconds <= 86400
+        ):
             raise ValueError("stale_after_seconds must be between 3 and 86400")
 
         now = datetime.now(UTC)

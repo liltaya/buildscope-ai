@@ -27,7 +27,11 @@ class SchedulingPolicy:
     def __post_init__(self) -> None:
         value = self.max_running_jobs
 
-        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 16:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not 1 <= value <= 16
+        ):
             raise ValueError("max_running_jobs must be an integer from 1 to 16")
 
 
@@ -49,7 +53,7 @@ def normalize_not_before(
         return None
 
     if not isinstance(value, datetime):
-        raise ValueError("not_before must be a datetime or None")
+        raise TypeError("not_before must be a datetime or None")
 
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("not_before must include a timezone")

@@ -1,7 +1,7 @@
 """Leakage-aware first-attempt failure datasets for BuildScope AI
 
 One row represents the FIRST attempt of a stage. Features are known at
-pipeline enqueue time; history is included only after an earlier run ends
+pipeline enqueue time; history is included only after an earlier run ends.
 """
 
 from __future__ import annotations
@@ -322,7 +322,9 @@ def _load_observations(
                 seen_cases += len(case_rows)
 
                 if seen_cases > MAX_CASES:
-                    raise FailureDatasetError("Too many test cases for a bounded export")
+                    raise FailureDatasetError(
+                        "Too many test cases for a bounded export"
+                    )
 
                 for stage_id, outcome in case_rows:
                     if outcome in {
@@ -347,7 +349,8 @@ def _load_observations(
                     )
                     .join(
                         BenchmarkReportRecord,
-                        BenchmarkSampleRecord.benchmark_report_id == BenchmarkReportRecord.id,
+                        BenchmarkSampleRecord.benchmark_report_id
+                        == BenchmarkReportRecord.id,
                     )
                     .join(
                         StageAttemptRecord,
@@ -364,7 +367,9 @@ def _load_observations(
                 seen_samples += len(bench_rows)
 
                 if seen_samples > MAX_BENCHMARK_SAMPLES:
-                    raise FailureDatasetError("Too many benchmark samples for a bounded export")
+                    raise FailureDatasetError(
+                        "Too many benchmark samples for a bounded export"
+                    )
 
                 for stage_id, seconds in bench_rows:
                     benchmark_stats[stage_id].append(float(seconds))
@@ -449,7 +454,6 @@ def build_failure_examples(
     ] = defaultdict(_Prior)
 
     cursor = 0
-
     output: list[FailureExample] = []
 
     for item in sorted_by_queue:
@@ -493,13 +497,17 @@ def build_failure_examples(
             "prior_attempts": prior.attempts,
             "prior_failures": prior.failures,
             "prior_timeouts": prior.timeouts,
-            "prior_failure_rate": (prior.failures / prior.attempts if prior.attempts else None),
-            "prior_retry_recoveries": (prior.retry_recoveries),
-            "prior_test_executions": (prior.test_executions),
-            "prior_test_failure_rate": (
-                prior.test_failures / prior.test_executions if prior.test_executions else None
+            "prior_failure_rate": (
+                prior.failures / prior.attempts if prior.attempts else None
             ),
-            "prior_benchmark_samples": (prior.benchmark_samples),
+            "prior_retry_recoveries": prior.retry_recoveries,
+            "prior_test_executions": prior.test_executions,
+            "prior_test_failure_rate": (
+                prior.test_failures / prior.test_executions
+                if prior.test_executions
+                else None
+            ),
+            "prior_benchmark_samples": prior.benchmark_samples,
             "prior_benchmark_last_median_seconds": (prior.last_benchmark_median),
         }
 
@@ -539,13 +547,15 @@ def _split_by_run(
     n = len(run_order)
 
     if n < 3:
+        warning = (
+            "Fewer than three distinct runs: "
+            "validation and test are empty; "
+            "do not report model accuracy."
+        )
+
         return (
             {run: "train" for run in run_order},
-            (
-                "Fewer than three distinct runs: "
-                "validation and test are empty; "
-                "do not report model accuracy.",
-            ),
+            (warning,),
         )
 
     train_end = max(
@@ -567,7 +577,9 @@ def _split_by_run(
 
     for index, run in enumerate(run_order):
         assigned[run] = (
-            "train" if index < train_end else ("validation" if index < validation_end else "test")
+            "train"
+            if index < train_end
+            else ("validation" if index < validation_end else "test")
         )
 
     return assigned, ()
@@ -692,7 +704,9 @@ def export_failure_dataset(
             )
 
         for split in ("validation", "test"):
-            if counts[split] and (positives[split] == 0 or positives[split] == counts[split]):
+            if counts[split] and (
+                positives[split] == 0 or positives[split] == counts[split]
+            ):
                 extra_warnings.append(
                     f"{split} split has one label class; "
                     "metrics such as ROC AUC "

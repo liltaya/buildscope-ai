@@ -58,7 +58,9 @@ def test_detect_endpoint_persists_results(
     project = tmp_path / "project"
     project.mkdir()
 
-    (project / "CMakeLists.txt").write_text("project(Test LANGUAGES CXX)\ninclude(CTest)\n")
+    (project / "CMakeLists.txt").write_text(
+        "project(Test LANGUAGES CXX)\ninclude(CTest)\n"
+    )
 
     app = create_app(database_path=tmp_path / "database.sqlite3")
 

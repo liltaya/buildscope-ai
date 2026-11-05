@@ -68,7 +68,9 @@ def prepare_benchmark_command(
         ).resolve()
 
     except OSError as exc:
-        raise BenchmarkReportError(f"Cannot create benchmark report directory: {exc}") from exc
+        raise BenchmarkReportError(
+            f"Cannot create benchmark report directory: {exc}"
+        ) from exc
 
     path = report_dir / "measurements.json"
 

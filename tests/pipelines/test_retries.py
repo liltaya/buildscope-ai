@@ -355,7 +355,9 @@ def test_timeout_retries_exhausted(
     assert result.status == RunStatus.TIMED_OUT
     assert result.stages[0].attempt_count == 2
 
-    assert all(attempt.status == RunStatus.TIMED_OUT for attempt in result.stages[0].attempts)
+    assert all(
+        attempt.status == RunStatus.TIMED_OUT for attempt in result.stages[0].attempts
+    )
 
 
 def test_pre_cancelled_pipeline_has_no_attempts(
@@ -533,16 +535,15 @@ def test_unique_attempt_number_enforced(
 
     stage_id = result.stages[0].id
 
-    with pytest.raises(IntegrityError):
-        with factory.begin() as session:
-            session.add(
-                StageAttemptRecord(
-                    stage_run_id=stage_id,
-                    attempt_number=1,
-                    status=RunStatus.QUEUED.value,
-                )
+    with pytest.raises(IntegrityError), factory.begin() as session:
+        session.add(
+            StageAttemptRecord(
+                stage_run_id=stage_id,
+                attempt_number=1,
+                status=RunStatus.QUEUED.value,
             )
-            session.flush()
+        )
+        session.flush()
 
 
 def test_retry_policy_is_version_specific(

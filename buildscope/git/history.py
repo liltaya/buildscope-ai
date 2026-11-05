@@ -59,7 +59,9 @@ def _require_success(
 ) -> str:
     """Return command output or raise a Git metadata error."""
     if result.returncode != 0:
-        raise GitMetadataError(f"Cannot {action}: {result.stderr.strip() or 'Git command failed'}")
+        raise GitMetadataError(
+            f"Cannot {action}: {result.stderr.strip() or 'Git command failed'}"
+        )
 
     return result.stdout.strip()
 

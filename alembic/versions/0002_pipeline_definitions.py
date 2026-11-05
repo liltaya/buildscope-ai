@@ -63,4 +63,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Prevent accidental deletion of stored pipeline history."""
-    raise RuntimeError("Destructive downgrade of pipeline definitions is not supported.")
+    raise RuntimeError(
+        "Destructive downgrade of pipeline definitions is not supported."
+    )

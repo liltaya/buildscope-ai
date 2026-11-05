@@ -200,25 +200,24 @@ def test_unique_version_enforced(
 
     service.create_version(repository_id, ONE)
 
-    with pytest.raises(IntegrityError):
-        with factory.begin() as session:
-            session.add(
-                PipelineDefinitionRecord(
-                    repository_id=repository_id,
-                    name="quality",
-                    version=1,
-                    configuration={
-                        "name": "quality",
-                        "stages": [
-                            {
-                                "name": "tests",
-                                "command": ["pytest"],
-                            }
-                        ],
-                    },
-                )
+    with pytest.raises(IntegrityError), factory.begin() as session:
+        session.add(
+            PipelineDefinitionRecord(
+                repository_id=repository_id,
+                name="quality",
+                version=1,
+                configuration={
+                    "name": "quality",
+                    "stages": [
+                        {
+                            "name": "tests",
+                            "command": ["pytest"],
+                        }
+                    ],
+                },
             )
-            session.flush()
+        )
+        session.flush()
 
     assert len(service.list_versions(repository_id, "quality")) == 1
 
@@ -228,25 +227,24 @@ def test_foreign_key_enforced(
 ) -> None:
     _, _, factory = context
 
-    with pytest.raises(IntegrityError):
-        with factory.begin() as session:
-            session.add(
-                PipelineDefinitionRecord(
-                    repository_id=uuid4(),
-                    name="quality",
-                    version=1,
-                    configuration={
-                        "name": "quality",
-                        "stages": [
-                            {
-                                "name": "tests",
-                                "command": ["pytest"],
-                            }
-                        ],
-                    },
-                )
+    with pytest.raises(IntegrityError), factory.begin() as session:
+        session.add(
+            PipelineDefinitionRecord(
+                repository_id=uuid4(),
+                name="quality",
+                version=1,
+                configuration={
+                    "name": "quality",
+                    "stages": [
+                        {
+                            "name": "tests",
+                            "command": ["pytest"],
+                        }
+                    ],
+                },
             )
-            session.flush()
+        )
+        session.flush()
 
 
 def test_upgrade_preserves_existing_repository(

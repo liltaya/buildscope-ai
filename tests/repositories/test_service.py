@@ -247,14 +247,13 @@ def test_database_unique_constraint_still_applies(
                 )
             )
 
-        with pytest.raises(IntegrityError):
-            with factory.begin() as session:
-                RepositoryStore(session).add(
-                    Repository(
-                        name="Second",
-                        local_path="/one",
-                    )
+        with pytest.raises(IntegrityError), factory.begin() as session:
+            RepositoryStore(session).add(
+                Repository(
+                    name="Second",
+                    local_path="/one",
                 )
+            )
 
         with factory() as session:
             count = len(session.scalars(select(Repository)).all())

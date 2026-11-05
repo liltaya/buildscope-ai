@@ -102,7 +102,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Test identities: {len(summaries)}")
 
             for item in summaries:
-                rate = f"{item.failure_rate:.1%}" if item.failure_rate is not None else "n/a"
+                rate = (
+                    f"{item.failure_rate:.1%}"
+                    if item.failure_rate is not None
+                    else "n/a"
+                )
 
                 print(f"\n{item.classification.value}  {item.identity.display_name}")
 

@@ -29,7 +29,9 @@ def test_adds_nullable_git_columns_preserves_rows(
             )
 
             connection.execute(
-                text("INSERT INTO pipeline_runs VALUES ('original', 'repo', 'SUCCEEDED')")
+                text(
+                    "INSERT INTO pipeline_runs VALUES ('original', 'repo', 'SUCCEEDED')"
+                )
             )
 
             context = MigrationContext.configure(connection)
@@ -56,12 +58,16 @@ def test_adds_nullable_git_columns_preserves_rows(
 
             module.upgrade()
 
-            row = connection.execute(text("SELECT * FROM pipeline_runs")).mappings().one()
+            row = (
+                connection.execute(text("SELECT * FROM pipeline_runs")).mappings().one()
+            )
 
             assert row["id"] == "original"
             assert row["git_commit_sha"] is None
 
-        columns = {column["name"] for column in inspect(engine).get_columns("pipeline_runs")}
+        columns = {
+            column["name"] for column in inspect(engine).get_columns("pipeline_runs")
+        }
 
         assert {
             "git_commit_sha",
@@ -71,7 +77,9 @@ def test_adds_nullable_git_columns_preserves_rows(
             "git_commit_subject",
         } <= columns
 
-        indexes = {index["name"] for index in inspect(engine).get_indexes("pipeline_runs")}
+        indexes = {
+            index["name"] for index in inspect(engine).get_indexes("pipeline_runs")
+        }
 
         assert "ix_pipeline_runs_repo_branch_commit" in indexes
 

@@ -133,14 +133,18 @@ def _validate_request(request: ExecutionRequest) -> Path:
         or len(arg.encode("utf-8")) > 8192
         for arg in request.command
     ):
-        raise ExecutionValidationError("Command arguments must be valid nonblank strings.")
+        raise ExecutionValidationError(
+            "Command arguments must be valid nonblank strings."
+        )
 
     if (
         isinstance(request.timeout_seconds, bool)
         or not isinstance(request.timeout_seconds, int)
         or not 1 <= request.timeout_seconds <= 3600
     ):
-        raise ExecutionValidationError("timeout_seconds must be an integer from 1 to 3600.")
+        raise ExecutionValidationError(
+            "timeout_seconds must be an integer from 1 to 3600."
+        )
 
     if (
         isinstance(request.max_output_bytes, bool)
@@ -152,22 +156,30 @@ def _validate_request(request: ExecutionRequest) -> Path:
     if not isinstance(request.repository_root, Path) or not isinstance(
         request.working_directory, Path
     ):
-        raise ExecutionValidationError("Repository root and working directory must be Paths.")
+        raise ExecutionValidationError(
+            "Repository root and working directory must be Paths."
+        )
 
     if request.working_directory.is_absolute():
         raise ExecutionValidationError("Working directory must be repository-relative.")
 
-    if request.log_directory is not None and not isinstance(request.log_directory, Path):
+    if request.log_directory is not None and not isinstance(
+        request.log_directory, Path
+    ):
         raise ExecutionValidationError("log_directory must be a Path or None.")
 
     try:
         root = request.repository_root.expanduser().resolve(strict=True)
         cwd = (root / request.working_directory).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise ExecutionValidationError("Repository root and working directory must exist.") from exc
+        raise ExecutionValidationError(
+            "Repository root and working directory must exist."
+        ) from exc
 
     if not root.is_dir() or not cwd.is_dir() or not cwd.is_relative_to(root):
-        raise ExecutionValidationError("Working directory must be inside repository root.")
+        raise ExecutionValidationError(
+            "Working directory must be inside repository root."
+        )
 
     return cwd
 

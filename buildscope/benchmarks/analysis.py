@@ -7,6 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from itertools import pairwise
 from uuid import UUID
 
 from sqlalchemy import select
@@ -59,6 +60,8 @@ class _CommitGroup:
 def _median_and_mad(
     values: list[float],
 ) -> tuple[float, float]:
+    """Calculate median and median absolute deviation."""
+
     center = statistics.median(values)
 
     deviation = statistics.median(abs(value - center) for value in values)
@@ -88,13 +91,18 @@ class BenchmarkAnalysisService:
         noise_multiplier: float = 3.0,
     ) -> tuple[BenchmarkComparison, ...]:
         """Compare adjacent observed, clean Git revision groups."""
+
         if isinstance(version, bool) or not isinstance(version, int) or version < 1:
             raise ValueError("version must be positive")
 
         if not pipeline_name.strip():
             raise ValueError("pipeline_name is required")
 
-        if isinstance(max_runs, bool) or not isinstance(max_runs, int) or not 1 <= max_runs <= 1000:
+        if (
+            isinstance(max_runs, bool)
+            or not isinstance(max_runs, int)
+            or not 1 <= max_runs <= 1000
+        ):
             raise ValueError("max_runs must be between 1 and 1000")
 
         if (
@@ -129,7 +137,8 @@ class BenchmarkAnalysisService:
                 select(PipelineRunRecord.id)
                 .join(
                     PipelineDefinitionRecord,
-                    PipelineRunRecord.pipeline_definition_id == PipelineDefinitionRecord.id,
+                    PipelineRunRecord.pipeline_definition_id
+                    == PipelineDefinitionRecord.id,
                 )
                 .where(
                     PipelineRunRecord.repository_id == repository_id,
@@ -168,7 +177,8 @@ class BenchmarkAnalysisService:
                 )
                 .join(
                     BenchmarkReportRecord,
-                    BenchmarkSampleRecord.benchmark_report_id == BenchmarkReportRecord.id,
+                    BenchmarkSampleRecord.benchmark_report_id
+                    == BenchmarkReportRecord.id,
                 )
                 .join(
                     StageAttemptRecord,
@@ -214,7 +224,9 @@ class BenchmarkAnalysisService:
             sha,
             queued_at,
         ) in rows:
-            if not (git_branch and sha and report.environment_key and report.command_sha256):
+            if not (
+                git_branch and sha and report.environment_key and report.command_sha256
+            ):
                 continue
 
             key = (
@@ -236,8 +248,11 @@ class BenchmarkAnalysisService:
 
                 commits[sha] = group
 
-            if queued_at > group.last_observed_at:
-                group.last_observed_at = queued_at
+            # PLR1730: use max() instead of an if statement.
+            group.last_observed_at = max(
+                group.last_observed_at,
+                queued_at,
+            )
 
             group.durations.append(seconds)
 
@@ -257,11 +272,9 @@ class BenchmarkAnalysisService:
                 ),
             )
 
-            for baseline, current in zip(
-                revisions,
-                revisions[1:],
-                strict=False,
-            ):
+            # RUF007: pairwise() is the correct operation
+            # for comparing adjacent revisions.
+            for baseline, current in pairwise(revisions):
                 baseline_median, baseline_mad = _median_and_mad(baseline.durations)
 
                 current_median, current_mad = _median_and_mad(current.durations)
@@ -270,11 +283,15 @@ class BenchmarkAnalysisService:
 
                 percent = 100 * delta / baseline_median
 
-                if len(baseline.durations) < min_samples or len(current.durations) < min_samples:
+                if (
+                    len(baseline.durations) < min_samples
+                    or len(current.durations) < min_samples
+                ):
                     assessment = SlowdownAssessment.INSUFFICIENT_SAMPLES
 
-                elif delta >= slowdown_threshold * baseline_median and delta > noise_multiplier * (
-                    baseline_mad + current_mad
+                elif (
+                    delta >= slowdown_threshold * baseline_median
+                    and delta > noise_multiplier * (baseline_mad + current_mad)
                 ):
                     assessment = SlowdownAssessment.SLOWDOWN
 
@@ -291,8 +308,8 @@ class BenchmarkAnalysisService:
                         command_sha256=fingerprint,
                         baseline_samples=len(baseline.durations),
                         current_samples=len(current.durations),
-                        baseline_median_seconds=(baseline_median),
-                        current_median_seconds=(current_median),
+                        baseline_median_seconds=baseline_median,
+                        current_median_seconds=current_median,
                         baseline_mad_seconds=baseline_mad,
                         current_mad_seconds=current_mad,
                         slowdown_percent=percent,

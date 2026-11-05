@@ -119,7 +119,9 @@ def _retry_recovery_count(
     count = 0
 
     for observations in by_stage.values():
-        failures = [row.attempt_number for row in observations if row.outcome in _FAILURES]
+        failures = [
+            row.attempt_number for row in observations if row.outcome in _FAILURES
+        ]
 
         passes = [row.attempt_number for row in observations if row.outcome == "PASSED"]
 
@@ -225,7 +227,11 @@ class TestReliabilityService:
         if isinstance(version, bool) or not isinstance(version, int) or version < 1:
             raise ValueError("version must be a positive integer")
 
-        if isinstance(max_runs, bool) or not isinstance(max_runs, int) or not 1 <= max_runs <= 1000:
+        if (
+            isinstance(max_runs, bool)
+            or not isinstance(max_runs, int)
+            or not 1 <= max_runs <= 1000
+        ):
             raise ValueError("max_runs must be between 1 and 1000")
 
         if not pipeline_name.strip():
@@ -243,7 +249,8 @@ class TestReliabilityService:
                 select(PipelineRunRecord.id)
                 .join(
                     PipelineDefinitionRecord,
-                    PipelineRunRecord.pipeline_definition_id == PipelineDefinitionRecord.id,
+                    PipelineRunRecord.pipeline_definition_id
+                    == PipelineDefinitionRecord.id,
                 )
                 .where(
                     PipelineRunRecord.repository_id == repository_id,
@@ -318,7 +325,9 @@ class TestReliabilityService:
 
             for case, attempt, stage, run in rows:
                 if case.outcome not in _OUTCOMES:
-                    raise ReliabilityDataError(f"Unknown test outcome: {case.outcome!r}")
+                    raise ReliabilityDataError(
+                        f"Unknown test outcome: {case.outcome!r}"
+                    )
 
                 identity = TestIdentity(
                     stage_name=stage.stage_name,
@@ -361,7 +370,11 @@ class TestReliabilityService:
             clean_commits = {
                 (item.branch, item.commit_sha)
                 for item in items
-                if (item.is_clean and item.branch is not None and item.commit_sha is not None)
+                if (
+                    item.is_clean
+                    and item.branch is not None
+                    and item.commit_sha is not None
+                )
             }
 
             summaries.append(

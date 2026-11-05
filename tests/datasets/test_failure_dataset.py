@@ -112,7 +112,11 @@ def add_run(
             pipeline_definition_id=context.definition_id,
             status=(run_status or final_stage_status or later_retry or status),
             queued_at=BASE + timedelta(days=day),
-            finished_at=(BASE + timedelta(days=finished_day) if finished_day is not None else None),
+            finished_at=(
+                BASE + timedelta(days=finished_day)
+                if finished_day is not None
+                else None
+            ),
             git_commit_sha="a" * 40,
             git_branch="main",
             git_is_dirty=False,
@@ -515,7 +519,9 @@ def test_command_fingerprint_partitions_history(
 
     assert examples[1].features["prior_attempts"] == 0
 
-    assert examples[0].features["command_sha256"] != examples[1].features["command_sha256"]
+    assert (
+        examples[0].features["command_sha256"] != examples[1].features["command_sha256"]
+    )
 
 
 def test_history_only_after_completion_not_same_run(

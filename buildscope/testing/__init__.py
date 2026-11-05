@@ -16,17 +16,17 @@ from buildscope.testing.service import (
 __all__ = [
     "FailedTestDetail",
     "ParsedTestCase",
+    "ReliabilityClassification",
+    "ReliabilityDataError",
     "TestCaseSummary",
+    "TestIdentity",
+    "TestReliabilityService",
+    "TestReliabilitySummary",
     "TestReportError",
     "TestReportService",
     "TestReportSummary",
     "parse_test_report",
     "prepare_test_command",
-    "ReliabilityClassification",
-    "ReliabilityDataError",
-    "TestIdentity",
-    "TestReliabilityService",
-    "TestReliabilitySummary",
 ]
 
 from buildscope.testing.reliability import (

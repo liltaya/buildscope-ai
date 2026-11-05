@@ -40,7 +40,9 @@ def parse_pipeline_yaml(
         )
 
         details = "; ".join(
-            (f"{'.'.join(str(segment) for segment in error['loc']) or 'pipeline'}: {error['msg']}")
+            (
+                f"{'.'.join(str(segment) for segment in error['loc']) or 'pipeline'}: {error['msg']}"
+            )
             for error in errors
         )
 

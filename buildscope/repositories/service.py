@@ -138,7 +138,9 @@ class RepositoryService:
 
             repositories = store.list_all()
 
-            return [RepositoryDetails.from_model(repository) for repository in repositories]
+            return [
+                RepositoryDetails.from_model(repository) for repository in repositories
+            ]
 
     def detect_repository(
         self,

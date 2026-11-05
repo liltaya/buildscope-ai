@@ -25,7 +25,9 @@ def test_python_pytest(tmp_path: Path) -> None:
 
 def test_cpp_with_google_test(tmp_path: Path) -> None:
     """Detect a CMake C++ project using Google Test."""
-    (tmp_path / "CMakeLists.txt").write_text("project(Demo LANGUAGES CXX)\ninclude(CTest)\n")
+    (tmp_path / "CMakeLists.txt").write_text(
+        "project(Demo LANGUAGES CXX)\ninclude(CTest)\n"
+    )
 
     cpp_worker = tmp_path / "cpp-worker"
     cpp_worker.mkdir()
@@ -56,7 +58,9 @@ def test_mixed_project(tmp_path: Path) -> None:
     """Detect a project containing Python and C++."""
     (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
 
-    (tmp_path / "CMakeLists.txt").write_text("project(Demo LANGUAGES CXX)\ninclude(CTest)\n")
+    (tmp_path / "CMakeLists.txt").write_text(
+        "project(Demo LANGUAGES CXX)\ninclude(CTest)\n"
+    )
 
     result = detect_project(tmp_path)
 
@@ -119,7 +123,9 @@ def test_google_test_header_detection(
     tests = tmp_path / "tests"
     tests.mkdir()
 
-    (tests / "core_test.cpp").write_text("#include <gtest/gtest.h>\nTEST(Sample, Works) {}\n")
+    (tests / "core_test.cpp").write_text(
+        "#include <gtest/gtest.h>\nTEST(Sample, Works) {}\n"
+    )
 
     result = detect_project(tmp_path)
 

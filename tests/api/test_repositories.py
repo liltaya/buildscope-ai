@@ -195,7 +195,10 @@ def test_list_is_sorted(
 
         assert response.status_code == 201
 
-    assert [repo["name"] for repo in client.get("/repositories").json()] == ["Alpha", "Zeta"]
+    assert [repo["name"] for repo in client.get("/repositories").json()] == [
+        "Alpha",
+        "Zeta",
+    ]
 
 
 def test_repository_persists_across_app_restarts(

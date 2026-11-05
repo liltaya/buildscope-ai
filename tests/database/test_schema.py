@@ -39,7 +39,9 @@ def test_repositories_table_has_expected_columns(
 
         inspector = inspect(engine)
 
-        column_names = {column["name"] for column in inspector.get_columns("repositories")}
+        column_names = {
+            column["name"] for column in inspector.get_columns("repositories")
+        }
 
         assert column_names == {
             "id",
@@ -68,7 +70,9 @@ def test_repositories_local_path_is_unique(
 
         constraints = inspector.get_unique_constraints("repositories")
 
-        constrained_columns = {tuple(constraint["column_names"]) for constraint in constraints}
+        constrained_columns = {
+            tuple(constraint["column_names"]) for constraint in constraints
+        }
 
         assert ("local_path",) in constrained_columns
     finally:

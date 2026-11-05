@@ -89,16 +89,15 @@ def test_foreign_key_constraints_are_enforced(
                 """
             )
 
-        with pytest.raises(IntegrityError):
-            with engine.begin() as connection:
-                connection.exec_driver_sql(
-                    """
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
                     INSERT INTO child (
                         id,
                         parent_id
                     )
                     VALUES (1, 999)
                     """
-                )
+            )
     finally:
         engine.dispose()

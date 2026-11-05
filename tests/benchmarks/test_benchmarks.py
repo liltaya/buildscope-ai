@@ -1,4 +1,4 @@
-"""Part 25 benchmark collection and regression integration tests"""
+"""Benchmark collection and regression integration tests"""
 
 from __future__ import annotations
 
@@ -176,6 +176,7 @@ def test_real_measurement_writes_json(
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr
@@ -206,6 +207,7 @@ def test_failed_command_has_no_complete_report(
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
 
     assert result.returncode == 7

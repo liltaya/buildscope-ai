@@ -179,7 +179,11 @@ def test_real_pytest_produces_test_cases(
     root.mkdir()
 
     (root / "test_sample.py").write_text(
-        "def test_pass():\n    assert 1 + 1 == 2\n\ndef test_fail():\n    assert 1 == 2\n"
+        "def test_pass():\n"
+        "    assert 1 + 1 == 2\n"
+        "\n"
+        "def test_fail():\n"
+        "    assert 1 == 2\n"
     )
 
     command, report_path = prepare_test_command(
@@ -199,6 +203,7 @@ def test_real_pytest_produces_test_cases(
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
 
     assert result.returncode == 1

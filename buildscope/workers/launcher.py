@@ -20,7 +20,11 @@ def launch_workers(
 ) -> None:
     """Start worker processes with a common scheduling policy."""
 
-    if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 4:
+    if (
+        isinstance(workers, bool)
+        or not isinstance(workers, int)
+        or not 1 <= workers <= 4
+    ):
         raise ValueError("workers must be between 1 and 4")
 
     SchedulingPolicy(max_running_jobs=max_running_jobs)
@@ -64,7 +68,11 @@ def launch_workers(
 
         raise
 
-    failures = [(process.pid, process.exitcode) for process in processes if process.exitcode != 0]
+    failures = [
+        (process.pid, process.exitcode)
+        for process in processes
+        if process.exitcode != 0
+    ]
 
     if failures:
         raise RuntimeError(f"Worker process failures: {failures}")

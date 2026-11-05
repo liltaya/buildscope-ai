@@ -36,7 +36,9 @@ def _run_git(
     *args: str,
 ) -> subprocess.CompletedProcess[str]:
     """Execute a fixed Git command without a shell."""
-    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
 
     try:
         return subprocess.run(
@@ -65,8 +67,11 @@ def inspect_git_repository(
     """Read the current Git state of an existing directory."""
     try:
         path = directory.expanduser().resolve(strict=True)
+
     except (OSError, RuntimeError) as exc:
-        raise ValueError("Repository path does not exist or cannot be resolved.") from exc
+        raise ValueError(
+            "Repository path does not exist or cannot be resolved."
+        ) from exc
 
     if not path.is_dir():
         raise ValueError("Repository path must be a directory.")
@@ -77,11 +82,10 @@ def inspect_git_repository(
         "--is-inside-work-tree",
     )
 
-    if status.returncode != 0:
-        if "not a git repository" not in status.stderr.lower():
-            raise GitInspectionError(
-                "Could not determine Git repository status: " + status.stderr.strip()[:300]
-            )
+    if status.returncode != 0 and "not a git repository" not in status.stderr.lower():
+        raise GitInspectionError(
+            "Could not determine Git repository status: " + status.stderr.strip()[:300]
+        )
 
     if status.returncode != 0 or status.stdout.strip() != "true":
         return GitMetadata(
@@ -116,7 +120,9 @@ def inspect_git_repository(
     if commit_result.returncode not in (0, 1):
         raise GitInspectionError("Could not determine current Git commit.")
 
-    commit_hash = commit_result.stdout.strip() if commit_result.returncode == 0 else None
+    commit_hash = (
+        commit_result.stdout.strip() if commit_result.returncode == 0 else None
+    )
 
     branch_result = _run_git(
         path,

@@ -44,9 +44,14 @@ class CppStageExecutor:
             raise ExecutionValidationError("Working directories must be Paths")
 
         if request.working_directory.is_absolute():
-            raise ExecutionValidationError("Working directory must be repository-relative")
+            raise ExecutionValidationError(
+                "Working directory must be repository-relative"
+            )
 
-        if not isinstance(request.command, tuple) or not 1 <= len(request.command) <= 64:
+        if (
+            not isinstance(request.command, tuple)
+            or not 1 <= len(request.command) <= 64
+        ):
             raise ExecutionValidationError("Command must contain 1-64 arguments")
 
         if any(
@@ -78,7 +83,9 @@ class CppStageExecutor:
             cwd = (root / request.working_directory).resolve(strict=True)
 
         except (OSError, RuntimeError) as exc:
-            raise ExecutionValidationError("Repository directory does not exist") from exc
+            raise ExecutionValidationError(
+                "Repository directory does not exist"
+            ) from exc
 
         if not root.is_dir() or not cwd.is_dir() or not cwd.is_relative_to(root):
             raise ExecutionValidationError("Working directory escapes repository root")
@@ -99,7 +106,9 @@ class CppStageExecutor:
             ).resolve()
 
         except OSError as exc:
-            raise ExecutionLaunchError(f"Could not create native worker logs: {exc}") from exc
+            raise ExecutionLaunchError(
+                f"Could not create native worker logs: {exc}"
+            ) from exc
 
         stdout_path = run_dir / "stdout.log"
         stderr_path = run_dir / "stderr.log"
@@ -216,7 +225,9 @@ class CppStageExecutor:
         stderr = captured(stderr_path)
 
         if outcome == "LAUNCH":
-            raise ExecutionLaunchError(f"Native stage executable launch failed (errno {code})")
+            raise ExecutionLaunchError(
+                f"Native stage executable launch failed (errno {code})"
+            )
 
         if outcome == "TIMEOUT":
             raise ExecutionTimeoutError(

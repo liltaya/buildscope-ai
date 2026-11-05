@@ -193,7 +193,11 @@ def test_forward_dependencies_run_in_correct_order(
 
     assert result.status == RunStatus.SUCCEEDED
 
-    assert [stage.stage_name for stage in result.stages] == ["configure", "build", "tests"]
+    assert [stage.stage_name for stage in result.stages] == [
+        "configure",
+        "build",
+        "tests",
+    ]
 
 
 def test_failure_blocks_dependent_stage(
