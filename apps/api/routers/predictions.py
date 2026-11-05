@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-
 from dataclasses import asdict
 from functools import lru_cache
 from ipaddress import ip_address
@@ -23,7 +22,6 @@ from buildscope.ml.prediction import (
     TrustedFailureModel,
 )
 from buildscope.ml.service import FailurePredictionService
-
 
 router = APIRouter(
     prefix="/predictions",
