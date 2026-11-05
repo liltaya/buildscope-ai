@@ -325,3 +325,20 @@
 - Model metadata and dependency tracking.
 - Model training CLI.
 - Twelve ML training integration tests.
+
+### Added
+
+- TrustedFailureModel for local model inference.
+- Model schema and checksum verification.
+- ML package-version compatibility checks.
+- Strict 20-feature inference validation.
+- Live pre-execution feature construction.
+- Historical feature reuse.
+- StagePrediction and ModelInfo result objects.
+- FailurePredictionService for saved pipelines.
+- Read-only failure prediction CLI.
+- JSON prediction output.
+- Opt-in FastAPI prediction endpoint.
+- Loopback-only HTTP access.
+- Model provenance in prediction responses.
+- Inference and API integration tests.

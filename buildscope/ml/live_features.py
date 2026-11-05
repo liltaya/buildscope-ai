@@ -1,0 +1,181 @@
+"""Construct Part 26 pre-execution features for saved stages"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID
+
+from buildscope.database.session import SessionFactory
+from buildscope.datasets.failures import (
+    MAX_ROWS,
+    _Prior,
+    _command_info,
+    _load_observations,
+)
+from buildscope.git.history import capture_git_snapshot
+from buildscope.pipelines.graph import build_pipeline_plan
+from buildscope.pipelines.service import PipelineService
+from buildscope.repositories.models import Repository
+
+
+class PredictionContextError(ValueError):
+    """Repository, pipeline version, or prediction time is invalid."""
+
+
+@dataclass(frozen=True, slots=True)
+class StageFeatures:
+    stage_name: str
+    stage_position: int
+    values: dict[str, object]
+
+
+def build_live_stage_features(
+    factory: SessionFactory,
+    repository_id: UUID,
+    pipeline_name: str,
+    version: int,
+    *,
+    as_of: datetime | None = None,
+) -> tuple[StageFeatures, ...]:
+    """Build stage features without enqueuing or executing work.
+
+    as_of exists for deterministic tests.
+    Public entrypoints always use the current UTC time.
+    """
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise PredictionContextError("version must be a positive integer")
+
+    if not pipeline_name.strip():
+        raise PredictionContextError("pipeline name is required")
+
+    now = datetime.now(UTC) if as_of is None else as_of
+
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise PredictionContextError("as_of must include a timezone")
+
+    now = now.astimezone(UTC)
+
+    with factory() as session:
+        repository = session.get(
+            Repository,
+            repository_id,
+        )
+
+        if repository is None:
+            raise PredictionContextError("Repository is not registered")
+
+        root = Path(repository.local_path).expanduser().resolve(strict=True)
+
+        if not root.is_dir():
+            raise PredictionContextError("Repository path is not a directory")
+
+    saved = PipelineService(factory).get_version(
+        repository_id,
+        pipeline_name,
+        version,
+    )
+
+    plan = build_pipeline_plan(saved.definition)
+
+    snapshot = capture_git_snapshot(root)
+
+    # Reuse Part 26's bounded historical extraction.
+    # This includes first-attempt test and benchmark data.
+    observations = _load_observations(
+        factory,
+        max_rows=MAX_ROWS,
+    )
+
+    history: dict[
+        tuple[UUID, str, int, str, str],
+        _Prior,
+    ] = {}
+
+    for previous in sorted(
+        observations,
+        key=lambda value: (
+            value.finished_at or datetime.max.replace(tzinfo=UTC),
+            str(value.run_id),
+        ),
+    ):
+        if (
+            previous.finished_at is None
+            or previous.finished_at >= now
+            or previous.finished_at < previous.queued_at
+        ):
+            continue
+
+        key = previous.history_key
+
+        if key not in history:
+            history[key] = _Prior()
+
+        history[key].add(previous)
+
+    outputs: list[StageFeatures] = []
+
+    for position, stage in enumerate(plan.ordered_stages):
+        command_sha, executable, count = _command_info(stage.command)
+
+        key = (
+            repository_id,
+            saved.name,
+            saved.version,
+            stage.name,
+            command_sha,
+        )
+
+        prior = history.get(
+            key,
+            _Prior(),
+        )
+
+        if snapshot is None:
+            worktree = "unknown"
+            head = "non_git_or_unknown"
+
+        else:
+            worktree = "dirty" if snapshot.is_dirty else "clean"
+
+            head = "detached" if snapshot.branch is None else "branch"
+
+        values: dict[str, object] = {
+            "pipeline_name": saved.name,
+            "pipeline_version": saved.version,
+            "stage_name": stage.name,
+            "stage_position": position,
+            "executable": executable,
+            "argument_count": count,
+            "command_sha256": command_sha,
+            "git_worktree_state": worktree,
+            "git_head_state": head,
+            "queued_hour_utc": now.hour,
+            "queued_weekday_utc": now.weekday(),
+            "prior_attempts": prior.attempts,
+            "prior_failures": prior.failures,
+            "prior_timeouts": prior.timeouts,
+            "prior_failure_rate": (
+                prior.failures / prior.attempts if prior.attempts else None
+            ),
+            "prior_retry_recoveries": (prior.retry_recoveries),
+            "prior_test_executions": (prior.test_executions),
+            "prior_test_failure_rate": (
+                prior.test_failures / prior.test_executions
+                if prior.test_executions
+                else None
+            ),
+            "prior_benchmark_samples": (prior.benchmark_samples),
+            "prior_benchmark_last_median_seconds": (prior.last_benchmark_median),
+        }
+
+        outputs.append(
+            StageFeatures(
+                stage_name=stage.name,
+                stage_position=position,
+                values=values,
+            )
+        )
+
+    return tuple(outputs)

@@ -1144,3 +1144,97 @@ frequent commands rather than generalizable failure patterns.
 Model artifacts must not be loaded from untrusted sources.
 
 Model inference and integration with BuildScope workers are deferred.
+
+
+## Failure prediction service
+
+BuildScope provides read-only stage failure-risk predictions using
+the trusted local classifier trained.
+
+The service:
+
+- Loads a trusted versioned model artifact
+- Validates the model and feature schema
+- Checks ML dependency versions and artifact checksum
+- Reads a registered repository and saved pipeline version
+- Captures the current Git checkout state
+- Computes historical features from earlier completed runs
+- Returns one failure-risk score per pipeline stage
+
+Predictions do not approve, enqueue, cancel or execute jobs.
+
+The reported failure scores are not calibrated probabilities.
+
+### CLI
+
+    python -m buildscope.ml.predict_cli \
+      --database data/buildscope.db \
+      --model data/models/failure-logreg-v1 \
+      --trusted-model \
+      --repository <UUID> \
+      --pipeline python-quality-pipeline \
+      --version 1
+
+Add --json for machine-readable output.
+
+### Local API
+
+The HTTP endpoint is disabled by default.
+
+Enable it explicitly:
+
+    export BUILDSCOPE_ENABLE_LOCAL_PREDICTIONS=1
+    export BUILDSCOPE_DATABASE_PATH="$PWD/data/buildscope.db"
+    export BUILDSCOPE_TRUSTED_MODEL_DIR="$PWD/data/models/failure-logreg-v1"
+
+Start the API:
+
+    python -m uvicorn apps.api.main:app \
+      --host 127.0.0.1 --port 8000
+
+Endpoint:
+
+    POST /predictions/stages
+
+The endpoint accepts a registered repository UUID, saved pipeline name,
+and pipeline version.
+
+The response includes:
+
+- Pipeline identity
+- Model schema and artifact hash
+- Training timestamp
+- Decision threshold
+- Whether probabilities are calibrated
+- Ordered stage-level failure scores
+- Thresholded failure flags
+
+### Safety
+
+Only load model artifacts from trusted local directories.
+
+Joblib uses pickle-based deserialization and is unsafe for untrusted files.
+
+The endpoint is restricted to loopback requests and is not designed for
+public network exposure.
+
+The local worker queue, scheduler and approval flow remain independent
+from predictions.
+
+### Limitations
+
+The model is an offline-trained logistic-regression baseline.
+
+Class-weighted scores are not guaranteed to be calibrated probabilities.
+
+Predictions use the current Git state and current historical snapshot,
+not an immutable snapshot of an earlier queued job.
+
+Historical feature extraction currently scans bounded first-attempt
+history and may become expensive as the database grows.
+
+The model is cached by the local API process. Restart the API after
+replacing the trusted model artifact.
+
+Model-driven execution decisions are not implemented.
+
