@@ -1,5 +1,15 @@
-"""Model training and evaluation for BuildScope AI"""
+"""BuildScope machine-learning training and prediction"""
 
+from buildscope.ml.prediction import (
+    ModelInfo,
+    PredictionError,
+    StagePrediction,
+    TrustedFailureModel,
+)
+from buildscope.ml.service import (
+    FailurePredictionService,
+    PipelineRiskAssessment,
+)
 from buildscope.ml.training import (
     ModelTrainingError,
     TrainingResult,
@@ -7,7 +17,13 @@ from buildscope.ml.training import (
 )
 
 __all__ = [
+    "FailurePredictionService",
+    "ModelInfo",
     "ModelTrainingError",
+    "PipelineRiskAssessment",
+    "PredictionError",
+    "StagePrediction",
     "TrainingResult",
+    "TrustedFailureModel",
     "train_failure_classifier",
 ]

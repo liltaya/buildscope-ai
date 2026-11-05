@@ -895,5 +895,55 @@ The output includes:
 
 The model does not access SQLite directly.
 
-Online prediction and model serving belong to Part 28.
+
+## Failure prediction service
+
+Adds inference without changing execution ownership.
+
+Components:
+
+- ml/prediction.py: trusted model loading, validation and scoring
+- ml/live_features.py: inference-time feature construction
+- ml/service.py: pipeline-level prediction orchestration
+- ml/predict_cli.py: read-only command-line predictions
+- apps/api/routers/predictions.py: opt-in local HTTP endpoint
+
+The inference flow is:
+
+    Registered repository
+        |
+        v
+    Saved pipeline version
+        |
+        v
+    Current Git snapshot
+        |
+        v
+    Historical first-attempt feature aggregation
+        |
+        v
+    Preprocessing and logistic regression
+        |
+        v
+    Ordered stage risk scores
+
+Feature construction reuses the historical aggregation rules.
+
+Historical results are restricted to runs completed before inference.
+
+The model requires the same 20-feature schema used during training.
+
+The model artifact contains fitted preprocessing transformations and
+logistic-regression coefficients.
+
+The model is loaded only from an explicitly trusted local directory.
+
+The service reports a thresholded classification but does not determine
+whether work should execute.
+
+WorkerQueue, PipelineRunner, job approval, lease handling and scheduling
+are not modified by this milestone.
+
+No additional database tables or Alembic migrations are required.
+
 
