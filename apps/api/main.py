@@ -40,13 +40,9 @@ async def lifespan(
     try:
         session_factory = create_session_factory(engine)
 
-        application.state.repository_service = RepositoryService(
-            session_factory
-        )
+        application.state.repository_service = RepositoryService(session_factory)
 
-        application.state.pipeline_service = PipelineService(
-            session_factory
-        )
+        application.state.pipeline_service = PipelineService(session_factory)
 
         yield
 
@@ -62,9 +58,7 @@ def create_app(
     """Create the local BuildScope API."""
     application = FastAPI(
         title="BuildScope AI",
-        description=(
-            "Local software delivery and reliability intelligence platform."
-        ),
+        description=("Local software delivery and reliability intelligence platform."),
         version=version(),
         lifespan=lifespan,
     )
