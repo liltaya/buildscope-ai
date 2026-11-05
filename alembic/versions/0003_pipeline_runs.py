@@ -132,4 +132,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise RuntimeError("Destructive downgrade of pipeline execution history is blocked.")
+    raise RuntimeError(
+        "Destructive downgrade of pipeline execution history is blocked."
+    )

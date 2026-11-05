@@ -46,7 +46,6 @@ from buildscope.datasets.failures import (
     TRAIN_COLUMNS,
 )
 
-
 MODEL_SCHEMA_VERSION = "failure-logreg-v1"
 THRESHOLD = 0.5
 SEED = 42
@@ -494,7 +493,7 @@ def _metrics(
     has_two_classes = len(set(labels.tolist())) == 2
 
     return {
-        "rows": int(len(labels)),
+        "rows": len(labels),
         "positive_count": int(labels.sum()),
         "decision_threshold": THRESHOLD,
         "accuracy": float(
@@ -645,9 +644,7 @@ def train_failure_classifier(
         if len(splits[name].labels) < 30:
             notes.append(f"{name} has fewer than 30 rows: metrics are unstable")
 
-    notes.append(
-        "Model must not be deployed solely from these holdout metrics"
-    )
+    notes.append("Model must not be deployed solely from these holdout metrics")
 
     destination.parent.mkdir(
         parents=True,
@@ -703,9 +700,7 @@ def train_failure_classifier(
                 "numpy": np.__version__,
                 "joblib": joblib.__version__,
             },
-            "counts": {
-                name: len(split.labels) for name, split in splits.items()
-            },
+            "counts": {name: len(split.labels) for name, split in splits.items()},
             "warnings": notes,
             "security": (
                 "joblib uses pickle: never load "

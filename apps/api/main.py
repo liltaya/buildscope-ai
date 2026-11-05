@@ -64,7 +64,9 @@ def create_app(
     )
 
     application.state.database_path = (
-        database_path if database_path is not None else Path.cwd() / "data" / "buildscope.db"
+        database_path
+        if database_path is not None
+        else Path.cwd() / "data" / "buildscope.db"
     )
 
     application.include_router(health_router)

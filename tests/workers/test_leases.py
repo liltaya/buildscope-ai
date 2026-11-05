@@ -45,26 +45,28 @@ def setup(
     engine = create_sqlite_engine(database)
     factory = create_session_factory(engine)
 
-    with factory.begin() as session:
-        repository = Repository(
-            name="lease-example",
-            local_path=str(tmp_path),
+    try:
+        with factory.begin() as session:
+            repository = Repository(
+                name="lease-example",
+                local_path=str(tmp_path),
+            )
+
+            session.add(repository)
+            session.flush()
+            repo_id = repository.id
+
+        PipelineService(factory).create_version(
+            repo_id,
+            "name: quality\nstages:\n"
+            "  - name: checks\n"
+            f"    command: [{sys.executable!r}, -c, 'print(17)']\n",
         )
 
-        session.add(repository)
-        session.flush()
-        repo_id = repository.id
+        yield database, WorkerQueue(factory), factory, repo_id
 
-    PipelineService(factory).create_version(
-        repo_id,
-        "name: quality\nstages:\n"
-        "  - name: checks\n"
-        f"    command: [{sys.executable!r}, -c, 'print(17)']\n",
-    )
-
-    yield database, WorkerQueue(factory), factory, repo_id
-
-    engine.dispose()
+    finally:
+        engine.dispose()
 
 
 def enqueue(
@@ -106,11 +108,19 @@ def age_claim(
 
 
 def test_claim_creates_lease_and_heartbeat(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
 ) -> None:
     _, q, factory, repo_id = setup
 
-    job_id = enqueue(q, repo_id)
+    job_id = enqueue(
+        q,
+        repo_id,
+    )
 
     claim = q.claim_next(
         "worker-a",
@@ -133,11 +143,19 @@ def test_claim_creates_lease_and_heartbeat(
 
 
 def test_heartbeat_renews_current_token_only(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
 ) -> None:
     _, q, _, repo_id = setup
 
-    enqueue(q, repo_id)
+    enqueue(
+        q,
+        repo_id,
+    )
 
     claim = q.claim_next(
         "worker-a",
@@ -156,7 +174,7 @@ def test_heartbeat_renews_current_token_only(
     renewed = q.get_job(claim.id)
 
     assert renewed.lease_expires_at is not None
-    assert renewed.lease_expires_at > (claim.lease_expires_at)
+    assert renewed.lease_expires_at > claim.lease_expires_at
 
     with pytest.raises(JobOwnershipError):
         q.heartbeat(
@@ -184,7 +202,12 @@ def test_heartbeat_renews_current_token_only(
 
 
 def test_recovery_requires_confirmed_dead_worker(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, q, factory, repo_id = setup
@@ -211,7 +234,12 @@ def test_recovery_requires_confirmed_dead_worker(
 
 
 def test_recovery_marks_job_failed_without_replaying(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, q, factory, repo_id = setup
@@ -250,7 +278,12 @@ def test_recovery_marks_job_failed_without_replaying(
 
 
 def test_recovery_reconciles_running_stages(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, q, factory, repo_id = setup
@@ -273,6 +306,7 @@ def test_recovery_reconciles_running_stages(
 
         session.add(run)
         session.flush()
+
         run_id = run.id
 
         session.add(
@@ -326,7 +360,12 @@ def test_recovery_reconciles_running_stages(
 
 
 def test_recovery_preserves_already_completed_pipeline(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, q, factory, repo_id = setup
@@ -339,7 +378,7 @@ def test_recovery_preserves_already_completed_pipeline(
     with factory.begin() as session:
         run = PipelineRunRecord(
             repository_id=repo_id,
-            pipeline_definition_id=q.get_job(job_id).pipeline_definition_id,
+            pipeline_definition_id=(q.get_job(job_id).pipeline_definition_id),
             status=RunStatus.SUCCEEDED.value,
             queued_at=datetime.now(UTC),
             started_at=datetime.now(UTC),
@@ -374,7 +413,12 @@ def test_recovery_preserves_already_completed_pipeline(
 
 
 def test_worker_renews_during_real_long_command(
-    setup: tuple[Path, WorkerQueue, SessionFactory, UUID],
+    setup: tuple[
+        Path,
+        WorkerQueue,
+        SessionFactory,
+        UUID,
+    ],
 ) -> None:
     db, q, _, repo_id = setup
 
@@ -415,6 +459,7 @@ def test_worker_renews_during_real_long_command(
         text=True,
         capture_output=True,
         timeout=40,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr

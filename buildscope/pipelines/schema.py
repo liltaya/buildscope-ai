@@ -72,7 +72,9 @@ class StageDefinition(BaseModel):
         parts: tuple[str, ...],
     ) -> tuple[str, ...]:
         if any(not part.strip() or "\x00" in part for part in parts):
-            raise ValueError("command arguments must be nonblank and contain no NUL bytes")
+            raise ValueError(
+                "command arguments must be nonblank and contain no NUL bytes"
+            )
 
         return parts
 

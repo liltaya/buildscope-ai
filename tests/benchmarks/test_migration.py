@@ -21,7 +21,10 @@ def test_migration_preserves_existing_attempt(
         connection.execute(text("INSERT INTO stage_attempts (id) VALUES ('existing')"))
 
         migration_path = (
-            Path(__file__).resolve().parents[2] / "alembic" / "versions" / "0010_benchmarks.py"
+            Path(__file__).resolve().parents[2]
+            / "alembic"
+            / "versions"
+            / "0010_benchmarks.py"
         )
 
         spec = importlib.util.spec_from_file_location(
@@ -41,7 +44,9 @@ def test_migration_preserves_existing_attempt(
         vars(module)["op"] = Operations(context)
         module.upgrade()
 
-        existing = connection.execute(text("SELECT id FROM stage_attempts")).scalar_one()
+        existing = connection.execute(
+            text("SELECT id FROM stage_attempts")
+        ).scalar_one()
 
         assert existing == "existing"
 

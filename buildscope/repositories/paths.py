@@ -18,7 +18,9 @@ def validate_repository_path(path: str | Path) -> str:
     try:
         resolved = Path(path).expanduser().resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise InvalidRepositoryError("Repository path must exist and be accessible.") from exc
+        raise InvalidRepositoryError(
+            "Repository path must exist and be accessible."
+        ) from exc
 
     if not resolved.is_dir():
         raise InvalidRepositoryError("Repository path must be an existing directory.")

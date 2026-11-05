@@ -19,7 +19,9 @@ from buildscope.database import (
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="BuildScope benchmark regression analysis")
+    parser = argparse.ArgumentParser(
+        description="BuildScope benchmark regression analysis"
+    )
 
     parser.add_argument(
         "--database",
@@ -86,7 +88,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.slowdowns_only:
             comparisons = tuple(
-                item for item in comparisons if item.assessment == SlowdownAssessment.SLOWDOWN
+                item
+                for item in comparisons
+                if item.assessment == SlowdownAssessment.SLOWDOWN
             )
 
         if args.json:

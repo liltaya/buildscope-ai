@@ -26,7 +26,9 @@ def upgrade() -> None:
             "created_at",
         }
 
-        existing_columns = {column["name"] for column in inspector.get_columns("repositories")}
+        existing_columns = {
+            column["name"] for column in inspector.get_columns("repositories")
+        }
 
         if existing_columns != expected_columns:
             raise RuntimeError(

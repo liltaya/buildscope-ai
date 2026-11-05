@@ -20,13 +20,14 @@ from buildscope.workers.scheduler import validate_priority
 def parse_utc_datetime(value: str) -> datetime:
     """Parse an ISO 8601 timestamp with an explicit timezone."""
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
+
     except ValueError as exc:
         raise argparse.ArgumentTypeError(
             "Expected ISO 8601 timestamp, for example 2026-11-01T12:00:00Z"
         ) from exc
 
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise argparse.ArgumentTypeError("Scheduled timestamps require a timezone.")
 
     return parsed.astimezone(UTC)
@@ -108,6 +109,7 @@ def main() -> None:
     if args.action == "enqueue":
         try:
             validate_priority(args.priority)
+
         except (TypeError, ValueError) as exc:
             parser.error(str(exc))
 

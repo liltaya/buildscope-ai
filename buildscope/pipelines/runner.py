@@ -269,8 +269,12 @@ class PipelineRunner:
             else:
                 record.finished_at = datetime.now(UTC)
                 record.exit_code = returncode
-                record.stdout_path = str(stdout_path) if stdout_path is not None else None
-                record.stderr_path = str(stderr_path) if stderr_path is not None else None
+                record.stdout_path = (
+                    str(stdout_path) if stdout_path is not None else None
+                )
+                record.stderr_path = (
+                    str(stderr_path) if stderr_path is not None else None
+                )
                 record.error_message = error_message
 
     def _start_attempt(
@@ -352,7 +356,9 @@ class PipelineRunner:
                 )
 
                 if stage is None:
-                    raise PipelineRunnerError(f"Missing stage record: {attempt.stage_run_id}")
+                    raise PipelineRunnerError(
+                        f"Missing stage record: {attempt.stage_run_id}"
+                    )
 
                 assert_transition(
                     RunStatus(stage.status),
@@ -486,7 +492,9 @@ class PipelineRunner:
                     stage_status=(
                         None
                         if should_retry
-                        else (RunStatus.CANCELLED if interrupted else RunStatus.TIMED_OUT)
+                        else (
+                            RunStatus.CANCELLED if interrupted else RunStatus.TIMED_OUT
+                        )
                     ),
                     stdout_path=exc.stdout_path,
                     stderr_path=exc.stderr_path,
@@ -516,14 +524,18 @@ class PipelineRunner:
                     error_message=f"Unexpected runner error: {exc}",
                 )
 
-                raise PipelineRunnerError(f"Unexpected failure executing stage: {exc}") from exc
+                raise PipelineRunnerError(
+                    f"Unexpected failure executing stage: {exc}"
+                ) from exc
 
             else:
                 succeeded = result.succeeded
 
                 interrupted = cancel_event is not None and cancel_event.is_set()
 
-                should_retry = not succeeded and number < total_attempts and not interrupted
+                should_retry = (
+                    not succeeded and number < total_attempts and not interrupted
+                )
 
                 stage_status = (
                     RunStatus.SUCCEEDED
@@ -613,11 +625,19 @@ class PipelineRunner:
                 pipeline_definition_id=saved.id,
                 status=RunStatus.QUEUED.value,
                 queued_at=datetime.now(UTC),
-                git_commit_sha=(git_snapshot.commit_sha if git_snapshot is not None else None),
+                git_commit_sha=(
+                    git_snapshot.commit_sha if git_snapshot is not None else None
+                ),
                 git_branch=(git_snapshot.branch if git_snapshot is not None else None),
-                git_is_dirty=(git_snapshot.is_dirty if git_snapshot is not None else None),
-                git_commit_at=(git_snapshot.commit_at if git_snapshot is not None else None),
-                git_commit_subject=(git_snapshot.subject if git_snapshot is not None else None),
+                git_is_dirty=(
+                    git_snapshot.is_dirty if git_snapshot is not None else None
+                ),
+                git_commit_at=(
+                    git_snapshot.commit_at if git_snapshot is not None else None
+                ),
+                git_commit_subject=(
+                    git_snapshot.subject if git_snapshot is not None else None
+                ),
             )
 
             session.add(run)
@@ -667,7 +687,8 @@ class PipelineRunner:
                 continue
 
             if unexpected is not None or any(
-                statuses[dependency] != RunStatus.SUCCEEDED for dependency in stage.depends_on
+                statuses[dependency] != RunStatus.SUCCEEDED
+                for dependency in stage.depends_on
             ):
                 self._update_stage(
                     stage_id,

@@ -75,7 +75,9 @@ def build_pipeline_plan(
     for stage in definition.stages:
         for dependency in stage.depends_on:
             if dependency == stage.name:
-                raise PipelineGraphError(f"Stage '{stage.name}' cannot depend on itself.")
+                raise PipelineGraphError(
+                    f"Stage '{stage.name}' cannot depend on itself."
+                )
 
             if dependency not in stages:
                 raise PipelineGraphError(

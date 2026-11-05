@@ -145,7 +145,9 @@ def test_unknown_version_returns_404(
 ) -> None:
     client, repository_id = api
 
-    response = client.get(f"/repositories/{repository_id}/pipelines/quality/versions/999")
+    response = client.get(
+        f"/repositories/{repository_id}/pipelines/quality/versions/999"
+    )
 
     assert response.status_code == 404
 

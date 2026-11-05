@@ -136,7 +136,9 @@ def detect_project(directory: Path) -> ProjectDetection:
             pyproject = tomllib.loads(pyproject_text)
 
         except tomllib.TOMLDecodeError:
-            warnings.append("Invalid TOML in pyproject.toml; project metadata not parsed.")
+            warnings.append(
+                "Invalid TOML in pyproject.toml; project metadata not parsed."
+            )
 
     python_markers = (
         "requirements.txt",
@@ -232,7 +234,9 @@ def detect_project(directory: Path) -> ProjectDetection:
         "tests/conftest.py",
     )
 
-    has_pytest = test_py_files or any((root / name).is_file() for name in pytest_markers)
+    has_pytest = test_py_files or any(
+        (root / name).is_file() for name in pytest_markers
+    )
 
     tool_settings = pyproject.get("tool")
 

@@ -18,7 +18,11 @@ def test_load_cpp_sample() -> None:
 
     assert definition.name == "cpp-quality-pipeline"
 
-    assert [stage.name for stage in definition.stages] == ["configure", "build", "tests"]
+    assert [stage.name for stage in definition.stages] == [
+        "configure",
+        "build",
+        "tests",
+    ]
 
     assert definition.stages[1].depends_on == ("configure",)
 
@@ -107,4 +111,6 @@ def test_validation_error_has_field_path() -> None:
         PipelineConfigError,
         match=r"stages\.0\.command",
     ):
-        parse_pipeline_yaml("name: quality\nstages:\n  - name: tests\n    command: pytest -q\n")
+        parse_pipeline_yaml(
+            "name: quality\nstages:\n  - name: tests\n    command: pytest -q\n"
+        )

@@ -104,11 +104,15 @@ class TestReportService:
                 raise LookupError(f"Stage attempt not found: {attempt_id}")
 
             previous = session.scalar(
-                select(TestReportRecord.id).where(TestReportRecord.stage_attempt_id == attempt_id)
+                select(TestReportRecord.id).where(
+                    TestReportRecord.stage_attempt_id == attempt_id
+                )
             )
 
             if previous is not None:
-                raise ValueError(f"Test report already ingested for attempt {attempt_id}")
+                raise ValueError(
+                    f"Test report already ingested for attempt {attempt_id}"
+                )
 
             report = TestReportRecord(
                 stage_attempt_id=attempt_id,
@@ -156,7 +160,9 @@ class TestReportService:
         """Retrieve the report metadata for an attempt."""
         with self._factory() as session:
             row = session.scalar(
-                select(TestReportRecord).where(TestReportRecord.stage_attempt_id == attempt_id)
+                select(TestReportRecord).where(
+                    TestReportRecord.stage_attempt_id == attempt_id
+                )
             )
 
             if row is None:

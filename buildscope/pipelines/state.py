@@ -47,4 +47,6 @@ def assert_transition(
 ) -> None:
     """Raise if a transition would violate the state machine."""
     if target not in _ALLOWED[current]:
-        raise InvalidRunTransitionError(f"Invalid state transition: {current} -> {target}")
+        raise InvalidRunTransitionError(
+            f"Invalid state transition: {current} -> {target}"
+        )

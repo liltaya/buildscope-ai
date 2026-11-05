@@ -40,7 +40,9 @@ def run_worker(
     """Process approved jobs with heartbeat-based lease fencing."""
 
     if not 0 < heartbeat_interval < lease_seconds / 2:
-        raise ValueError("heartbeat_interval must be positive and less than half the lease")
+        raise ValueError(
+            "heartbeat_interval must be positive and less than half the lease"
+        )
 
     if poll_interval <= 0:
         raise ValueError("poll_interval must be positive")
@@ -86,8 +88,9 @@ def run_worker(
                             worker_id,
                             lease_seconds=lease_seconds,
                         )
+
                     else:
-                        job_id, token, cancellation = current
+                        job_id, token, _cancellation = current
 
                         queue.heartbeat(
                             worker_id,
@@ -118,6 +121,7 @@ def run_worker(
                             "Worker %s heartbeat lock retry exhausted",
                             worker_id,
                         )
+
                     else:
                         logger.exception(
                             "Worker %s heartbeat database error",
