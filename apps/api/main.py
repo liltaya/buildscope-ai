@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from apps.api.routers.dashboard import router as dashboard_router
 from apps.api.routers.predictions import router as prediction_router
 from apps.api.routes.health import router as health_router
 from apps.api.routes.pipelines import router as pipeline_router
@@ -40,13 +41,9 @@ async def lifespan(
     try:
         session_factory = create_session_factory(engine)
 
-        application.state.repository_service = RepositoryService(
-            session_factory
-        )
+        application.state.repository_service = RepositoryService(session_factory)
 
-        application.state.pipeline_service = PipelineService(
-            session_factory
-        )
+        application.state.pipeline_service = PipelineService(session_factory)
 
         yield
 
@@ -62,9 +59,7 @@ def create_app(
     """Create the local BuildScope API."""
     application = FastAPI(
         title="BuildScope AI",
-        description=(
-            "Local software delivery and reliability intelligence platform."
-        ),
+        description=("Local software delivery and reliability intelligence platform."),
         version=version(),
         lifespan=lifespan,
     )
@@ -78,8 +73,8 @@ def create_app(
     application.include_router(health_router)
     application.include_router(repository_router)
     application.include_router(pipeline_router)
-
     application.include_router(prediction_router)
+    application.include_router(dashboard_router)
 
     return application
 

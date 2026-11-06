@@ -27,7 +27,7 @@ dependencies = [
 dev = [
     "httpx>=0.27",
     "pytest>=8.0",
-    "ruff>=0.8",
+    "ruff==0.17.2",
     "mypy>=1.13",
     "types-PyYAML>=6.0",
 ]
@@ -69,3 +69,5 @@ module = [
 follow_untyped_imports = false
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "buildscope"]

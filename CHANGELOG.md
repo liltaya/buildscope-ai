@@ -342,3 +342,20 @@
 - Loopback-only HTTP access.
 - Model provenance in prediction responses.
 - Inference and API integration tests.
+
+### Added
+
+- Local browser-based developer dashboard.
+- Read-only DashboardService.
+- FastAPI dashboard router.
+- Repository and saved pipeline selectors.
+- Pipeline execution KPI cards.
+- Recent pipeline history table.
+- Git regression summaries.
+- Flaky-test reliability summaries.
+- Benchmark performance-change summaries.
+- Optional ML failure-risk visualization.
+- Manual data refresh.
+- Responsive HTML/CSS interface.
+- Local access and static asset restrictions.
+- Dashboard integration and security tests.

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import Self, cast
 from uuid import uuid4
 
 import joblib
@@ -69,18 +69,12 @@ def sample_features(
         "prior_attempts": prior,
         "prior_failures": 0,
         "prior_timeouts": 0,
-        "prior_failure_rate": (
-            None if prior % 3 == 0 else 0.1
-        ),
+        "prior_failure_rate": (None if prior % 3 == 0 else 0.1),
         "prior_retry_recoveries": 0,
         "prior_test_executions": 0,
-        "prior_test_failure_rate": (
-            None if prior % 5 == 0 else 0.2
-        ),
+        "prior_test_failure_rate": (None if prior % 5 == 0 else 0.2),
         "prior_benchmark_samples": 0,
-        "prior_benchmark_last_median_seconds": (
-            None if prior % 4 == 0 else 0.05
-        ),
+        "prior_benchmark_last_median_seconds": (None if prior % 4 == 0 else 0.05),
     }
 
 
@@ -91,11 +85,7 @@ def model_dir(tmp_path: Path) -> Path:
         [
             _feature_row(
                 sample_features(
-                    stage=(
-                        "checks"
-                        if index % 2
-                        else "lint"
-                    ),
+                    stage=("checks" if index % 2 else "lint"),
                     prior=index,
                 )
             )
@@ -103,22 +93,11 @@ def model_dir(tmp_path: Path) -> Path:
         ]
     )
 
-    labels = np.asarray(
-        [
-            index % 2
-            for index in range(16)
-        ]
-    )
+    labels = np.asarray([index % 2 for index in range(16)])
 
-    categorical_indices = [
-        FEATURE_COLUMNS.index(name)
-        for name in CATEGORICAL_COLUMNS
-    ]
+    categorical_indices = [FEATURE_COLUMNS.index(name) for name in CATEGORICAL_COLUMNS]
 
-    numeric_indices = [
-        FEATURE_COLUMNS.index(name)
-        for name in NUMERIC_COLUMNS
-    ]
+    numeric_indices = [FEATURE_COLUMNS.index(name) for name in NUMERIC_COLUMNS]
 
     model = Pipeline(
         [
@@ -128,9 +107,7 @@ def model_dir(tmp_path: Path) -> Path:
                     [
                         (
                             "categories",
-                            OneHotEncoder(
-                                handle_unknown="ignore"
-                            ),
+                            OneHotEncoder(handle_unknown="ignore"),
                             categorical_indices,
                         ),
                         (
@@ -147,9 +124,7 @@ def model_dir(tmp_path: Path) -> Path:
                                     ),
                                     (
                                         "scale",
-                                        StandardScaler(
-                                            with_mean=False
-                                        ),
+                                        StandardScaler(with_mean=False),
                                     ),
                                 ]
                             ),
@@ -175,9 +150,7 @@ def model_dir(tmp_path: Path) -> Path:
     model_file = directory / "model.joblib"
     joblib.dump(model, model_file)
 
-    checksum = hashlib.sha256(
-        model_file.read_bytes()
-    ).hexdigest()
+    checksum = hashlib.sha256(model_file.read_bytes()).hexdigest()
 
     metadata = {
         "schema_version": MODEL_SCHEMA_VERSION,
@@ -196,9 +169,7 @@ def model_dir(tmp_path: Path) -> Path:
         "trained_at_utc": "2026-11-05T00:00:00+00:00",
     }
 
-    (directory / "metadata.json").write_text(
-        json.dumps(metadata)
-    )
+    (directory / "metadata.json").write_text(json.dumps(metadata))
 
     return directory
 
@@ -210,9 +181,7 @@ def test_requires_trust(
         PredictionError,
         match="trusted",
     ):
-        TrustedFailureModel.load(
-            model_dir
-        )
+        TrustedFailureModel.load(model_dir)
 
 
 def test_load_and_predict(
@@ -234,9 +203,7 @@ def test_load_and_predict(
 
     assert 0 <= result.failure_score <= 1
 
-    assert result.predicted_failure == (
-        result.failure_score >= 0.5
-    )
+    assert result.predicted_failure == (result.failure_score >= 0.5)
 
     assert scorer.info.probability_calibrated is False
 
@@ -283,9 +250,7 @@ def test_invalid_features(
 def test_tampered_model_rejected(
     model_dir: Path,
 ) -> None:
-    (model_dir / "model.joblib").write_bytes(
-        b"changed-model-content"
-    )
+    (model_dir / "model.joblib").write_bytes(b"changed-model-content")
 
     with pytest.raises(
         PredictionError,
@@ -302,17 +267,11 @@ def test_package_version_mismatch_rejected(
 ) -> None:
     path = model_dir / "metadata.json"
 
-    metadata = json.loads(
-        path.read_text()
-    )
+    metadata = json.loads(path.read_text())
 
-    metadata["python_packages"][
-        "scikit_learn"
-    ] = "0.0.0"
+    metadata["python_packages"]["scikit_learn"] = "0.0.0"
 
-    path.write_text(
-        json.dumps(metadata)
-    )
+    path.write_text(json.dumps(metadata))
 
     with pytest.raises(
         PredictionError,
@@ -331,7 +290,7 @@ class FakeFactory:
     def __call__(self) -> FakeFactory:
         return self
 
-    def __enter__(self) -> FakeFactory:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -382,9 +341,7 @@ def test_live_features_use_only_completed_history(
 ) -> None:
     repository_id = uuid4()
 
-    factory = FakeFactory(
-        SimpleNamespace(local_path=str(tmp_path))
-    )
+    factory = FakeFactory(SimpleNamespace(local_path=str(tmp_path)))
 
     stage = SimpleNamespace(
         name="checks",
@@ -394,22 +351,15 @@ def test_live_features_use_only_completed_history(
     saved = SimpleNamespace(
         name="quality",
         version=1,
-        definition=SimpleNamespace(
-            ordered_stages=(stage,)
-        ),
+        definition=SimpleNamespace(ordered_stages=(stage,)),
     )
 
     monkeypatch.setattr(
         live,
         "PipelineService",
-        lambda factory: SimpleNamespace(
-            get_version=lambda *args: saved
-        ),
+        lambda factory: SimpleNamespace(get_version=lambda *args: saved),
     )
 
-    # Correction 1:
-    # The test fixture already contains an ordered pipeline plan.
-    # Avoid calling the real graph planner, which requires .stages.
     monkeypatch.setattr(
         live,
         "build_pipeline_plan",
@@ -426,9 +376,7 @@ def test_live_features_use_only_completed_history(
         ),
     )
 
-    fingerprint, _, _ = _command_info(
-        stage.command
-    )
+    fingerprint, _, _ = _command_info(stage.command)
 
     timestamp = datetime(
         2026,
@@ -448,17 +396,15 @@ def test_live_features_use_only_completed_history(
         uuid4(),
     )
 
-    still_running_at_prediction_time = (
-        HistoricalObservation(
-            repository_id,
-            "quality",
-            1,
-            "checks",
-            fingerprint,
-            timestamp - timedelta(days=1),
-            timestamp + timedelta(days=2),
-            uuid4(),
-        )
+    still_running_at_prediction_time = HistoricalObservation(
+        repository_id,
+        "quality",
+        1,
+        "checks",
+        fingerprint,
+        timestamp - timedelta(days=1),
+        timestamp + timedelta(days=2),
+        uuid4(),
     )
 
     monkeypatch.setattr(
@@ -470,9 +416,6 @@ def test_live_features_use_only_completed_history(
         ],
     )
 
-    # Correction 2:
-    # FakeFactory is an intentional test double, not a SQLAlchemy
-    # sessionmaker. The cast satisfies static type checking.
     result = build_live_stage_features(
         cast(sessionmaker[Session], factory),
         repository_id,
@@ -656,10 +599,7 @@ def test_api_returns_readonly_scores(
 
     body = response.json()
 
-    assert (
-        body["predictions"][0]["failure_score"]
-        == 0.67
-    )
+    assert body["predictions"][0]["failure_score"] == 0.67
 
     assert body["probability_calibrated"] is False
     assert "command" not in str(body)

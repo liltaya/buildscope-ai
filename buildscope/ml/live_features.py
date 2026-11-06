@@ -10,9 +10,9 @@ from uuid import UUID
 from buildscope.database.session import SessionFactory
 from buildscope.datasets.failures import (
     MAX_ROWS,
-    _Prior,
     _command_info,
     _load_observations,
+    _Prior,
 )
 from buildscope.git.history import capture_git_snapshot
 from buildscope.pipelines.graph import build_pipeline_plan
