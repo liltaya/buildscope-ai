@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from apps.api.routers.dashboard import router as dashboard_router
 from apps.api.routers.predictions import router as prediction_router
 from apps.api.routes.health import router as health_router
 from apps.api.routes.pipelines import router as pipeline_router
@@ -72,8 +73,8 @@ def create_app(
     application.include_router(health_router)
     application.include_router(repository_router)
     application.include_router(pipeline_router)
-
     application.include_router(prediction_router)
+    application.include_router(dashboard_router)
 
     return application
 

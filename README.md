@@ -1238,3 +1238,91 @@ replacing the trusted model artifact.
 
 Model-driven execution decisions are not implemented.
 
+
+## Local developer dashboard
+
+BuildScope AI includes a read-only web dashboard for inspecting
+pipeline delivery and reliability history.
+
+The dashboard integrates:
+
+- Registered repositories
+- Pipeline run counts and statuses
+- Recent pipeline execution history
+- Saved pipeline versions
+- Git regression windows
+- Unstable test evidence
+- Benchmark performance comparisons
+- Optional ML first-attempt failure-risk scores
+
+### Start
+
+Activate the Python virtual environment.
+
+    export BUILDSCOPE_ENABLE_LOCAL_DASHBOARD=1
+    export BUILDSCOPE_DATABASE_PATH="$PWD/data/buildscope.db"
+
+    python -m uvicorn apps.api.main:app \
+      --host 127.0.0.1 \
+      --port 8000
+
+Open:
+
+    http://127.0.0.1:8000/dashboard
+
+### Optional ML predictions
+
+Configure the trusted local model:
+
+    export BUILDSCOPE_ENABLE_LOCAL_PREDICTIONS=1
+    export BUILDSCOPE_TRUSTED_MODEL_DIR="$PWD/data/models/failure-logreg-v1"
+
+Restart the API after changing the model configuration.
+
+### Dashboard API
+
+GET /dashboard/api/overview
+
+Returns repositories, pipeline versions, summary counters,
+and recent pipeline runs.
+
+GET /dashboard/api/insights
+
+Requires repository_id, pipeline_name and version.
+
+Returns Git, test reliability and benchmark summaries.
+
+GET /dashboard/api/predictions
+
+Requires repository_id, pipeline_name and version.
+
+Returns optional stage-level model scores.
+
+### Safety
+
+The dashboard is disabled by default.
+
+It is intended to run only on 127.0.0.1.
+
+Requests are restricted to loopback clients and local Host headers.
+
+All dashboard routes are read-only.
+
+The dashboard cannot approve, enqueue, execute, cancel or
+reprioritize jobs.
+
+Model scores are advisory and are not calibrated probabilities.
+
+The dashboard is not an authenticated public web application.
+
+### Implementation
+
+The frontend uses HTML, CSS and vanilla JavaScript.
+
+No frontend build process or additional database migration is required.
+
+The dashboard reuses existing SQLAlchemy models and analysis services.
+
+The frontend uses manual refresh rather than background polling.
+
+Detailed views are bounded to recent execution and analysis history.

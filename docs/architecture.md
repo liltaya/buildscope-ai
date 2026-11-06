@@ -947,3 +947,64 @@ are not modified by this milestone.
 No additional database tables or Alembic migrations are required.
 
 
+## Developer dashboard
+
+Components:
+
+- buildscope/dashboard/service.py
+- apps/api/routers/dashboard.py
+- apps/api/static/dashboard/index.html
+- apps/api/static/dashboard/styles.css
+- apps/api/static/dashboard/app.js
+
+DashboardService supplies read-only database summaries.
+
+It accesses:
+
+- Repository
+- PipelineDefinitionRecord
+- PipelineRunRecord
+- WorkerJobRecord
+
+It delegates advanced analytics to:
+
+- GitRegressionHistoryService
+- TestReliabilityService
+- BenchmarkAnalysisService
+
+Optional ML predictions use FailurePredictionService.
+
+The HTTP routes are:
+
+- GET /dashboard
+- GET /dashboard/assets/{filename}
+- GET /dashboard/api/overview
+- GET /dashboard/api/insights
+- GET /dashboard/api/predictions
+
+The frontend renders responses using DOM text nodes.
+
+No untrusted repository or test-result text is inserted
+using innerHTML.
+
+The dashboard does not depend on a JavaScript framework,
+frontend bundler or external CDN.
+
+The dashboard has no execution or approval controls.
+
+Access is disabled unless explicitly enabled by the operator.
+
+The local access guard restricts requests using client address,
+Host, Origin and an environment feature flag.
+
+This is a local development boundary, not a replacement for
+authentication and authorization in a production deployment.
+
+The dashboard does not modify pipeline, job, test, benchmark
+or model records.
+
+No new database migration is required.
+
+Public deployment security and release hardening are deferred.
+ 
+
