@@ -102,6 +102,22 @@ def test_invalid_xml(
         parse_test_report(report)
 
 
+def test_utf16_entity_declaration_rejected(tmp_path: Path) -> None:
+    # A byte-level "<!DOCTYPE" check cannot see UTF-16 text; the parser
+    # itself must refuse the DTD.
+    report = tmp_path / "utf16.xml"
+    report.write_bytes(
+        (
+            '<?xml version="1.0" encoding="UTF-16"?>'
+            '<!DOCTYPE t [<!ENTITY x "y">]>'
+            '<testsuite><testcase name="a">&x;</testcase></testsuite>'
+        ).encode("utf-16")
+    )
+
+    with pytest.raises(ReportError, match="DTD"):
+        parse_test_report(report)
+
+
 def test_missing_report(tmp_path: Path) -> None:
     with pytest.raises(ReportError):
         parse_test_report(tmp_path / "missing.xml")
