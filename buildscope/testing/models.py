@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -86,6 +87,11 @@ class TestCaseRecord(Base):
     __tablename__ = "test_cases"
 
     __table_args__ = (
+        Index(
+            "ix_test_cases_report_outcome",
+            "test_report_id",
+            "outcome",
+        ),
         UniqueConstraint(
             "test_report_id",
             "position",

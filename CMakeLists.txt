@@ -6,26 +6,30 @@ project(
     LANGUAGES CXX
 )
 
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include(CTest)
+if(NOT UNIX)
+    message(FATAL_ERROR "The BuildScope C++ worker requires a POSIX platform")
+endif()
 
+include(CTest)
 
 include(FetchContent)
 
 FetchContent_Declare(
     googletest
     URL
-        https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+        https://github.com/google/googletest/archive/refs/tags/v1.18.0.zip
+    URL_HASH
+        SHA256=63b9c77751a5b8f492486005f67533fdc58682b67476fcb91650be5958d5195a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 set(
-    gtest_force_shared_crt
-    ON
+    INSTALL_GTEST
+    OFF
     CACHE BOOL
     ""
     FORCE
@@ -33,38 +37,4 @@ set(
 
 FetchContent_MakeAvailable(googletest)
 
-
-
 add_subdirectory(cpp-worker)
-
-
-
-if(TARGET buildscope_cpp_worker)
-
-    target_compile_features(
-        buildscope_cpp_worker
-        PRIVATE
-            cxx_std_20
-    )
-
-    if(MSVC)
-
-        target_compile_options(
-            buildscope_cpp_worker
-            PRIVATE
-                /W4
-        )
-
-    else()
-
-        target_compile_options(
-            buildscope_cpp_worker
-            PRIVATE
-                -Wall
-                -Wextra
-                -Wpedantic
-        )
-
-    endif()
-
-endif()

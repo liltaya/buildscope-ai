@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -23,35 +20,10 @@ from buildscope.execution.executor import (
     ExecutionValidationError,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
 
-
-@pytest.fixture(scope="module")
-def native_binary(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Path:
-    if os.name != "posix" or shutil.which("c++") is None:
-        pytest.skip("Requires POSIX and a C++20 compiler")
-
-    output = tmp_path_factory.mktemp("cpp-bin") / "buildscope_cpp_worker"
-
-    subprocess.run(
-        [
-            "c++",
-            "-std=c++20",
-            "-Wall",
-            "-Wextra",
-            "-Wpedantic",
-            "-Werror",
-            str(ROOT / "cpp/worker/main.cpp"),
-            "-o",
-            str(output),
-        ],
-        check=True,
-        timeout=60,
-    )
-
-    return output
+@pytest.fixture
+def native_binary(cpp_worker: Path) -> Path:
+    return cpp_worker
 
 
 def execute(

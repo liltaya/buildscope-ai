@@ -116,6 +116,7 @@ def test_non_git_folder_returns_useful_result(
     assert data["is_git_repository"] is False
     assert data["branch"] is None
     assert data["commit_hash"] is None
+    assert data["detached_head"] is False
     assert data["warnings"]
 
 
@@ -188,7 +189,31 @@ def test_unborn_repository_through_api(
     assert data["is_git_repository"] is True
     assert data["branch"] == "main"
     assert data["commit_hash"] is None
+    assert data["detached_head"] is False
     assert data["warnings"]
+
+
+def test_detached_head_through_api(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "detached"
+    make_git_repo(project)
+    commit = git(project, "rev-parse", "HEAD")
+    git(project, "checkout", "-q", "--detach", commit)
+
+    repository_id = register(client, project)
+
+    response = client.get(f"/repositories/{repository_id}/git")
+
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert data["is_git_repository"] is True
+    assert data["detached_head"] is True
+    assert data["branch"] is None
+    assert data["commit_hash"] == commit
 
 
 def test_git_unavailable_returns_503(

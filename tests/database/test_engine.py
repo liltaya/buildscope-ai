@@ -1,10 +1,12 @@
 """Tests for SQLite engine configuration."""
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from buildscope.database import create_sqlite_engine
 
@@ -101,3 +103,56 @@ def test_foreign_key_constraints_are_enforced(
             )
     finally:
         engine.dispose()
+
+
+def test_read_then_write_does_not_deadlock_with_another_writer(
+    tmp_path: Path,
+) -> None:
+    """A transaction that reads before writing must wait, not fail.
+
+    With deferred transactions, the reader holds a shared lock while a
+    second connection takes the reserved lock; SQLite then refuses the
+    reader's upgrade immediately instead of honouring busy_timeout.
+    """
+    database_path = tmp_path / "contention.db"
+    first = create_sqlite_engine(database_path)
+    second = create_sqlite_engine(database_path)
+
+    try:
+        with first.begin() as connection:
+            connection.execute(text("CREATE TABLE counter (value INTEGER)"))
+            connection.execute(text("INSERT INTO counter VALUES (0)"))
+
+        reader_started = threading.Event()
+        errors: list[OperationalError] = []
+
+        def other_writer() -> None:
+            reader_started.wait(5)
+
+            try:
+                with second.begin() as connection:
+                    connection.execute(text("UPDATE counter SET value = value + 10"))
+            except OperationalError as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=other_writer)
+        thread.start()
+
+        with first.begin() as connection:
+            connection.execute(text("SELECT value FROM counter")).scalar_one()
+            reader_started.set()
+            time.sleep(0.3)
+            connection.execute(text("UPDATE counter SET value = value + 1"))
+
+        thread.join(10)
+
+        assert not errors
+
+        with first.connect() as connection:
+            total = connection.execute(text("SELECT value FROM counter")).scalar_one()
+
+        assert total == 11
+
+    finally:
+        first.dispose()
+        second.dispose()
