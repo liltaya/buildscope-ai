@@ -189,6 +189,10 @@ def _send_group_signal(pid: int, sig: signal.Signals) -> None:
         os.killpg(pid, sig)
     except ProcessLookupError:
         pass
+    except PermissionError:
+        # macOS reports EPERM when every remaining member is a zombie
+        # awaiting reaping, which means there is nothing left to signal.
+        pass
 
 
 def execute_command(
@@ -331,8 +335,9 @@ def execute_command(
                                 selector.unregister(pipe)
                                 pipe.close()
 
-                if process.poll() is None:
-                    _send_group_signal(process.pid, signal.SIGKILL)
+                # Descendants that detached from the output pipes would
+                # otherwise outlive a successful stage.
+                _send_group_signal(process.pid, signal.SIGKILL)
 
                 exit_code = process.wait(timeout=2)
 
