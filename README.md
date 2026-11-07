@@ -7,8 +7,6 @@ build, which tests are flaky rather than broken, which stage got slower and by
 how much, and which stages are likely to fail next. It is a single-user tool: no
 server to run, no account, nothing leaves the machine.
 
-![BuildScope dashboard showing the run matrix, pipeline graph and regression timeline](docs/images/dashboard.png)
-
 ## Quickstart
 
 Requires Python 3.12 and Git on macOS or Linux.
