@@ -56,6 +56,9 @@ jobs:
       - name: CTest
         run: ctest --test-dir build/ci --output-on-failure
 
+      - name: Dashboard JavaScript syntax
+        run: node --check apps/api/static/dashboard/app.js
+
       - name: Pytest
         env:
           BUILDSCOPE_CPP_WORKER: build/ci/cpp-worker/buildscope_cpp_worker
@@ -109,6 +112,9 @@ jobs:
 
           curl -sf http://127.0.0.1:8765/health
           curl -sf http://127.0.0.1:8765/health/ready
+          curl -sf http://127.0.0.1:8765/dashboard | grep -q '<title>BuildScope</title>'
+          curl -sf http://127.0.0.1:8765/dashboard/assets/app.js > /dev/null
+          curl -sf http://127.0.0.1:8765/dashboard/api/overview
 
       - name: Show server log on failure
         if: failure()

@@ -57,7 +57,7 @@ class _CommitGroup:
     durations: list[float]
 
 
-def _median_and_mad(
+def median_and_mad(
     values: list[float],
 ) -> tuple[float, float]:
     """Calculate median and median absolute deviation."""
@@ -275,9 +275,9 @@ class BenchmarkAnalysisService:
             # RUF007: pairwise() is the correct operation
             # for comparing adjacent revisions.
             for baseline, current in pairwise(revisions):
-                baseline_median, baseline_mad = _median_and_mad(baseline.durations)
+                baseline_median, baseline_mad = median_and_mad(baseline.durations)
 
-                current_median, current_mad = _median_and_mad(current.durations)
+                current_median, current_mad = median_and_mad(current.durations)
 
                 delta = current_median - baseline_median
 

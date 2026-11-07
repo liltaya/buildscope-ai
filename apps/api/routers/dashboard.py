@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Annotated
@@ -189,6 +190,23 @@ def insights(
     )
 
 
+def _holdout_metrics(model_dir: Path) -> dict[str, object] | None:
+    """Summarize test-split quality so scores can be judged in context."""
+    try:
+        metrics = json.loads((model_dir / "metrics.json").read_text(encoding="utf-8"))
+        model = metrics["logistic_regression"]["test"]
+        baseline = metrics["constant_prior_baseline"]["test"]
+
+        return {
+            "rows": model["rows"],
+            "roc_auc": model["roc_auc"],
+            "f1": model["f1"],
+            "baseline_f1": baseline["f1"],
+        }
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 @router.get("/api/predictions")
 def predictions(
     response: Response,
@@ -229,6 +247,8 @@ def predictions(
             detail="Trusted model unavailable",
         ) from exc
 
+    holdout = _holdout_metrics(Path(configured))
+
     def run(factory):
         assessment = FailurePredictionService(
             factory,
@@ -244,6 +264,8 @@ def predictions(
             "model": assessment.model.schema_version,
             "model_sha256": (assessment.model.model_sha256[:12]),
             "calibrated": (assessment.model.probability_calibrated),
+            "threshold": assessment.model.decision_threshold,
+            "holdout": holdout,
             "predictions": [
                 {
                     "stage": item.stage_name,
