@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -25,6 +26,15 @@ class PipelineRunRecord(Base):
     """One execution of a specific saved pipeline version."""
 
     __tablename__ = "pipeline_runs"
+
+    __table_args__ = (
+        Index(
+            "ix_pipeline_runs_repo_branch_commit",
+            "repository_id",
+            "git_branch",
+            "git_commit_sha",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),

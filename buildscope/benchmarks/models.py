@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -25,6 +26,11 @@ class BenchmarkReportRecord(Base):
     __tablename__ = "benchmark_reports"
 
     __table_args__ = (
+        Index(
+            "ix_benchmark_reports_metric_environment",
+            "metric",
+            "environment_key",
+        ),
         UniqueConstraint(
             "stage_attempt_id",
             name="uq_benchmark_reports_attempt",
