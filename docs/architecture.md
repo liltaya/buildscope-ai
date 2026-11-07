@@ -62,14 +62,14 @@ sequenceDiagram
     U->>Q: enqueue --approve (repository, pipeline, version, priority)
     W->>Q: claim_next (atomic UPDATE, lease + claim token)
     loop every heartbeat interval
-        W->>Q: heartbeat (renew lease; lost lease cancels the run)
+        W->>Q: heartbeat renews the lease (a lost lease cancels the run)
     end
     W->>R: run_version(approved=True)
     R->>R: capture git snapshot, plan DAG order
     loop each stage in order
         R->>E: execute attempt (own process group, timeout, output cap)
         E-->>R: exit code, logs, duration
-        R->>R: persist attempt; retry up to retry_count
+        R->>R: persist the attempt, retry up to retry_count times
         R->>R: ingest JUnit XML or benchmark JSON if configured
     end
     W->>Q: complete (fenced by claim token)

@@ -7,16 +7,16 @@ build, which tests are flaky rather than broken, which stage got slower and by
 how much, and which stages are likely to fail next. It is a single-user tool: no
 server to run, no account, nothing leaves the machine.
 
-![BuildScope dashboard showing the run matrix, pipeline graph and regression timeline](docs/images/dashboard.png)
-
 ## Quickstart
 
 Requires Python 3.12 and Git on macOS or Linux.
 
 ```bash
+git clone https://github.com/liltaya/buildscope-ai.git
+cd buildscope-ai
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install https://github.com/liltaya/buildscope-ai/releases/download/v0.1.0/buildscope_ai-0.1.0-py3-none-any.whl
+pip install .
 
 python -m buildscope.demo seed --database data/demo.db
 buildscope serve --database data/demo.db --model data/demo-model
@@ -29,7 +29,9 @@ regression that is still open, one test that only passes on retry, a 44 %
 benchmark slowdown and a trained failure model. The commands in the demo
 pipeline are recorded, never executed.
 
-To install from source instead, clone the repository and run `pip install .`.
+Each [release](https://github.com/liltaya/buildscope-ai/releases) also attaches
+a wheel with a `SHA256SUMS` file; `pip install` the wheel to run BuildScope
+without cloning.
 
 ## What it does
 
