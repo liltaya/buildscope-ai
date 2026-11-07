@@ -41,6 +41,10 @@ def _serve(arguments: argparse.Namespace) -> int:
     os.environ[DATABASE_PATH_VARIABLE] = str(arguments.database)
     os.environ.setdefault("BUILDSCOPE_ENABLE_LOCAL_DASHBOARD", "1")
 
+    if arguments.model is not None:
+        os.environ["BUILDSCOPE_TRUSTED_MODEL_DIR"] = str(arguments.model)
+        os.environ["BUILDSCOPE_ENABLE_LOCAL_PREDICTIONS"] = "1"
+
     uvicorn.run(
         "apps.api.main:app",
         host=arguments.host,
@@ -96,6 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--database",
         type=Path,
         default=database_path(),
+    )
+    serve.add_argument(
+        "--model",
+        type=Path,
+        help="trusted model directory; enables read-only stage predictions",
     )
     serve.set_defaults(handler=_serve)
 
