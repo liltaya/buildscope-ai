@@ -6,13 +6,14 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -55,6 +56,9 @@ jobs:
 
       - name: CTest
         run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Release preflight
+        run: python -m buildscope.release preflight
 
       - name: Dashboard JavaScript syntax
         run: node --check apps/api/static/dashboard/app.js
