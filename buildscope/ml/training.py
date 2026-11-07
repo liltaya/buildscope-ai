@@ -1,7 +1,7 @@
 """Reproducible, leakage-aware baseline model training
 
 Consumes only the train/validation/test CSV and manifest/provenance
-produced by Part 26. It does not query SQLite or read post-run data.
+produced by buildscope.datasets. It does not query SQLite or read post-run data.
 """
 
 from __future__ import annotations
@@ -251,13 +251,15 @@ def _validate_dataset(
     manifest = _read_json(source / "manifest.json")
 
     if manifest.get("schema_version") != SCHEMA_VERSION:
-        raise ModelTrainingError("Unsupported Part 26 dataset schema")
+        raise ModelTrainingError("Unsupported failure dataset schema")
 
     if manifest.get("target_column") != TARGET_COLUMN:
         raise ModelTrainingError("Unexpected target column")
 
     if manifest.get("feature_columns") != list(FEATURE_COLUMNS):
-        raise ModelTrainingError("Feature schema/order does not match Part 26")
+        raise ModelTrainingError(
+            "Feature schema or order does not match the dataset export"
+        )
 
     if manifest.get("split_method") != (
         "chronological_by_pipeline_queued_at_grouped_by_run"
@@ -569,7 +571,7 @@ def train_failure_classifier(
     dataset_directory: Path,
     output_directory: Path,
 ) -> TrainingResult:
-    """Fit one immutable baseline from Part 26 data."""
+    """Fit one immutable baseline from an exported failure dataset."""
     source = dataset_directory.expanduser().resolve(strict=True)
 
     if not source.is_dir():

@@ -203,6 +203,9 @@ def _classification(
 class TestReliabilityService:
     """Analyze parsed cases for one immutable pipeline version."""
 
+    # The "Test" prefix describes the domain; it is not a pytest test class.
+    __test__ = False
+
     def __init__(
         self,
         session_factory: SessionFactory,

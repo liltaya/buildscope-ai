@@ -1,4 +1,4 @@
-"""Part 18 integration tests using the real migrations and PipelineRunner"""
+"""Worker queue integration tests using real migrations and PipelineRunner"""
 
 from __future__ import annotations
 

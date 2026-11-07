@@ -35,7 +35,7 @@ def make_dataset(
     one_class_train: bool = False,
     one_class_test: bool = False,
 ) -> Path:
-    """Create a synthetic Part 26 export for testing only."""
+    """Create a synthetic failure dataset export for testing only."""
     root.mkdir()
 
     splits = (

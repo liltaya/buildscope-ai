@@ -13,7 +13,11 @@ from buildscope.release.database import (
     check_database,
     restore_test,
 )
-from buildscope.release.preflight import run_preflight
+from buildscope.release.preflight import (
+    changelog_section,
+    project_version,
+    run_preflight,
+)
 
 
 def _print_report(report: DatabaseReport) -> None:
@@ -58,6 +62,20 @@ def _restore_test(arguments: argparse.Namespace) -> int:
     result = restore_test(arguments.database, arguments.backup)
     print("restore matches source: schema and row counts")
     _print_report(result.restored)
+
+    return 0
+
+
+def _notes(arguments: argparse.Namespace) -> int:
+    root = arguments.root.resolve()
+    version = arguments.version or project_version(root)
+    section = changelog_section((root / "CHANGELOG.md").read_text(), version)
+
+    if not section:
+        print(f"FAIL  no changelog section for {version}")
+        return 1
+
+    print(section)
 
     return 0
 
@@ -107,6 +125,14 @@ def build_parser() -> argparse.ArgumentParser:
     restore.add_argument("--database", type=Path, required=True)
     restore.add_argument("--backup", type=Path, required=True)
     restore.set_defaults(handler=_restore_test)
+
+    notes = commands.add_parser(
+        "notes",
+        help="print the changelog section used as release notes",
+    )
+    notes.add_argument("--root", type=Path, default=Path.cwd())
+    notes.add_argument("--version", help="defaults to project.version")
+    notes.set_defaults(handler=_notes)
 
     return parser
 

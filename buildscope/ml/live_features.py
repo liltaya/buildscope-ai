@@ -1,4 +1,4 @@
-"""Construct Part 26 pre-execution features for saved stages"""
+"""Construct pre-execution features for the stages of a saved pipeline"""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def build_live_stage_features(
 
     snapshot = capture_git_snapshot(root)
 
-    # Reuse Part 26's bounded historical extraction.
+    # Reuse the dataset export's history so live and training features match.
     # This includes first-attempt test and benchmark data.
     observations = _load_observations(
         factory,
