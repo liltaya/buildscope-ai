@@ -22,6 +22,7 @@ from buildscope.pipelines.run_models import (
 from buildscope.pipelines.service import PipelineService
 from buildscope.pipelines.state import RunStatus
 from buildscope.repositories.models import Repository
+from buildscope.testing.reports import ReportKind
 from buildscope.testing.service import (
     TestReportService as ReportService,
 )
@@ -241,7 +242,7 @@ GTEST_REPORT = """<?xml version="1.0" encoding="UTF-8"?>
 )
 def test_native_reports_persist_cases(
     context: tuple[ReportService, UUID, UUID, Path],
-    kind: str,
+    kind: ReportKind,
     xml: str,
 ) -> None:
     service, attempt_id, run_id, root = context
@@ -275,7 +276,7 @@ def test_native_reports_persist_cases(
 )
 def test_native_missing_or_malformed_is_recorded(
     context: tuple[ReportService, UUID, UUID, Path],
-    kind: str,
+    kind: ReportKind,
     contents: str | None,
     expected: str,
 ) -> None:
