@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
-from ipaddress import ip_address
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from apps.api.security import require_local_request
 from buildscope.database import (
     create_session_factory,
     create_sqlite_engine,
@@ -26,6 +26,7 @@ from buildscope.ml.service import FailurePredictionService
 router = APIRouter(
     prefix="/predictions",
     tags=["predictions"],
+    dependencies=[Depends(require_local_request)],
 )
 
 
@@ -71,22 +72,7 @@ class PipelinePredictionResponse(BaseModel):
 )
 def predict_stages(
     request: PredictPipelineRequest,
-    http_request: Request,
 ) -> PipelinePredictionResponse:
-    client_host = http_request.client.host if http_request.client else ""
-
-    try:
-        is_loopback = ip_address(client_host).is_loopback
-
-    except ValueError:
-        is_loopback = False
-
-    if not is_loopback:
-        raise HTTPException(
-            status_code=403,
-            detail="Local loopback clients only",
-        )
-
     if os.environ.get("BUILDSCOPE_ENABLE_LOCAL_PREDICTIONS") != "1":
         raise HTTPException(
             status_code=503,

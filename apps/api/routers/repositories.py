@@ -12,6 +12,7 @@ from apps.api.schemas.repositories import (
     RepositoryDetectionResponse,
     RepositoryResponse,
 )
+from apps.api.security import require_local_request
 from buildscope.git import (
     GitInspectionError,
     GitMetadata,
@@ -32,6 +33,7 @@ from buildscope.repositories.service import (
 router = APIRouter(
     prefix="/repositories",
     tags=["repositories"],
+    dependencies=[Depends(require_local_request)],
 )
 
 ServiceDependency = Annotated[

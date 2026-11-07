@@ -24,6 +24,14 @@ from buildscope.pipelines.service import PipelineService
 from buildscope.repositories.service import RepositoryService
 from buildscope.settings import database_path as configured_database_path
 
+ROUTERS = (
+    health_router,
+    repository_router,
+    pipeline_router,
+    prediction_router,
+    dashboard_router,
+)
+
 
 @asynccontextmanager
 async def lifespan(
@@ -69,11 +77,8 @@ def create_app(
         database_path if database_path is not None else configured_database_path()
     )
 
-    application.include_router(health_router)
-    application.include_router(repository_router)
-    application.include_router(pipeline_router)
-    application.include_router(prediction_router)
-    application.include_router(dashboard_router)
+    for router in ROUTERS:
+        application.include_router(router)
 
     return application
 

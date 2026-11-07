@@ -13,6 +13,7 @@ from buildscope.database import (
     create_sqlite_engine,
 )
 from buildscope.repositories.models import Repository
+from tests.helpers import local_client
 
 ONE = "name: quality\nstages:\n  - name: tests\n    command: [pytest, -q]\n"
 
@@ -32,7 +33,7 @@ def api(
 
     app = create_app(database_path=database_path)
 
-    with TestClient(app) as client:
+    with local_client(app) as client:
         engine = create_sqlite_engine(database_path)
 
         with create_session_factory(engine).begin() as session:
@@ -159,7 +160,7 @@ def test_pipeline_persists_after_restart(
 
     app = create_app(database_path=database_path)
 
-    with TestClient(app) as first:
+    with local_client(app) as first:
         engine = create_sqlite_engine(database_path)
 
         with create_session_factory(engine).begin() as session:
@@ -181,7 +182,7 @@ def test_pipeline_persists_after_restart(
 
         assert response.status_code == 201
 
-    with TestClient(create_app(database_path=database_path)) as second:
+    with local_client(create_app(database_path=database_path)) as second:
         response = second.get(f"/repositories/{repository_id}/pipelines/quality/latest")
 
         assert response.status_code == 200

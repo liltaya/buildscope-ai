@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from apps.api.security import require_local_request
 from buildscope import version
 from buildscope.database import create_sqlite_engine
 from buildscope.database.migrate import head_revision
@@ -30,6 +31,7 @@ class ReadinessResponse(BaseModel):
 
 router = APIRouter(
     tags=["system"],
+    dependencies=[Depends(require_local_request)],
 )
 
 
