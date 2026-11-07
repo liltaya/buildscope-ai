@@ -57,6 +57,9 @@ jobs:
         run: ctest --test-dir build/ci --output-on-failure
 
       - name: Pytest
+        env:
+          BUILDSCOPE_CPP_WORKER: build/ci/cpp-worker/buildscope_cpp_worker
+          BUILDSCOPE_REQUIRE_CPP_WORKER: "1"
         run: pytest -q -rs
 
   package:
