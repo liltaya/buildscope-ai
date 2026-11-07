@@ -1,361 +1,69 @@
-### Added
+# Changelog
 
-- FastAPI application bootstrap.
-- FastAPI application factory.
-- Application lifespan handling.
-- Structured API startup and shutdown logging.
-- Health-check endpoint.
-- Pydantic health response schema.
-- OpenAPI documentation.
-- Automated FastAPI endpoint tests.
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/).
 
-### Added
+## [0.1.0] - 2026-11-07
 
-- SQLAlchemy database foundation.
-- SQLite engine creation.
-- SQLite modern transaction configuration.
-- SQLite foreign-key enforcement.
-- SQLAlchemy declarative base.
-- SQLAlchemy Session factory.
-- Database schema initialization.
-- Database integration tests.
-- Transaction rollback test.
+First release: a local pipeline runner with history analysis and a dashboard.
 
 ### Added
 
-- Repository SQLAlchemy ORM model.
-- UUID repository identifiers.
-- UTC-aware repository creation timestamps.
-- Repository path normalization.
-- Unique local repository path constraint.
-- Repository database integrity constraints.
-- Repository persistence tests.
-- Repository schema tests.
+- Repository registration with project detection (language, build system, test
+  framework) and live Git inspection, including detached HEAD and repositories
+  without commits.
+- Pipeline definitions in YAML with schema validation, DAG validation (unknown
+  dependencies, self-dependencies, cycles) and deterministic stage order.
+- Immutable, versioned pipeline storage with Alembic migrations shipped inside the
+  package.
+- Stage execution in isolated process groups with timeouts, cancellation,
+  per-attempt retries, bounded logs and cleanup of every descendant process.
+- An optional C++20 stage worker with the same contract, built with CMake and
+  tested with GoogleTest.
+- A durable SQLite job queue with approval, priorities, delayed start, a global
+  concurrency cap, one running job per repository and round-robin fairness.
+- Worker heartbeats, fenced leases and recovery that reconciles jobs, runs,
+  stages and attempts after a worker dies, without replaying work.
+- Git-linked run history and regression windows (last good commit to first bad
+  commit).
+- Parsing and storage of pytest, CTest and GoogleTest XML results.
+- Test reliability classification: retry flaky, same-commit variability, mixed
+  across commits, consistent failure, stable pass, insufficient data.
+- Benchmark timing with median and MAD per revision and slowdown detection
+  against both a relative threshold and a noise floor.
+- Leakage-safe failure dataset export with chronological, run-grouped splits.
+- A logistic-regression failure model with holdout metrics against a
+  constant-prior baseline.
+- Read-only stage failure scores from a trusted local model.
+- A local dashboard with a stage-by-run attempt matrix, pipeline graph, regression
+  timeline, unstable-test table, benchmark chart and risk scores.
+- `buildscope serve`, `buildscope db upgrade` and
+  `python -m buildscope.demo seed` for a reproducible demo history.
+- `python -m buildscope.release` with `preflight`, `db-check`, `backup` and
+  `restore-test`.
+- CI on Ubuntu and macOS: Ruff, mypy, CTest, pytest, wheel install test,
+  dependency audit and a full-history secret scan; a tag-triggered release
+  workflow with checksums.
 
-### Added
+### Security
 
-- RepositoryStore persistence abstraction.
-- RepositoryService application layer.
-- Immutable RepositoryDetails results.
-- Repository registration and retrieval.
-- Repository listing.
-- Application-level repository exceptions.
-- Duplicate registration protection.
-- Transaction-managed repository operations.
-- Repository service integration tests.
+- Every API route rejects non-loopback clients, foreign `Host` headers and
+  cross-origin requests.
+- Model files are refused if they are symlinks, owned by another user or
+  writable by others, and are verified against their checksum before loading.
+- Test-report XML is parsed with DTDs and entities disabled.
 
-### Added
+### Known limitations
 
-- Repository registration REST API.
-- Repository list endpoint.
-- Repository lookup by UUID endpoint.
-- Filesystem existence validation.
-- Directory validation.
-- HTTP error mapping for invalid, duplicate, and missing repositories.
-- FastAPI database lifecycle integration.
-- Repository API integration tests.
+- Stages are not sandboxed; approve only pipelines you trust.
+- If a worker process is killed, its running stage process is not stopped by
+  recovery.
+- Failure scores are not calibrated, and some features grow with history length,
+  so models trained on short histories can rank poorly. The dashboard shows each
+  model's holdout ROC AUC.
+- Scheduling has no aging; low-priority jobs can wait indefinitely behind a steady
+  stream of higher-priority work.
+- macOS and Linux only.
 
-### Added
-
-- Rule-based Python project detection.
-- C++ source and CMake detection.
-- pytest, CTest, and GoogleTest detection.
-- Python build-backend detection.
-- Mixed-language project classification.
-- Detection evidence and warnings.
-- Repository detection service operation.
-- Persistence of detected repository metadata.
-- POST /repositories/{id}/detect endpoint.
-- Project detection unit and integration tests.
-
-### Added
-
-- Read-only GitInspector module.
-- Git repository and working-tree detection.
-- Git repository root resolution.
-- Current branch and commit inspection.
-- Detached HEAD detection.
-- Support for repositories without commits.
-- Graceful non-Git directory handling.
-- Git subprocess timeout and error handling.
-- GET /repositories/{id}/git endpoint.
-- Git inspection unit and integration tests.
-
-### Added
-
-- Pydantic pipeline configuration schema.
-- StageDefinition and PipelineDefinition models.
-- Safe YAML loading with PyYAML.
-- Command argument-array validation.
-- Timeout and retry limits.
-- Unique stage-name validation.
-- Pipeline configuration error handling.
-- Python and C++ sample pipeline files.
-- Pipeline schema and loader tests.
-
-### Added
-
-- Pipeline dependency graph validation.
-- Missing-dependency detection.
-- Self-dependency validation.
-- Dependency cycle detection with diagnostic paths.
-- Deterministic topological sorting.
-- PipelinePlan model.
-- load_pipeline_plan() entry point.
-- Pipeline graph unit and integration tests.
-
-### Added
-
-- PipelineDefinitionRecord SQLAlchemy model.
-- PipelineStore and PipelineService.
-- Pipeline version numbering.
-- Persistent JSON pipeline configurations.
-- Pipeline version history retrieval.
-- Pipeline foreign-key and uniqueness constraints.
-- Alembic migrations.
-- Existing database baseline migration.
-- Pipeline persistence REST endpoints.
-- Pipeline persistence and API integration tests.
-
-### Added
-
-- ExecutionRequest and ExecutionResult models.
-- Synchronous local command executor.
-- Direct subprocess execution without shell interpolation.
-- Repository working-directory validation.
-- Working-directory traversal and symlink escape rejection.
-- stdout and stderr capture.
-- Exit code and execution duration reporting.
-- UTC execution timestamps.
-- Executable launch error handling.
-- Basic subprocess timeout handling.
-- 24 automated executor tests.
-
-### Added
-
-- POSIX process-group execution.
-- Graceful SIGTERM and SIGKILL escalation.
-- Running-command cancellation through threading.Event.
-- Bounded stdout and stderr capture.
-- Persistent per-run log files.
-- Output truncation reporting.
-- Partial log preservation on timeout and cancellation.
-- Detection and cleanup of lingering output pipes.
-- Process lifecycle and cancellation tests.
-
-### Added
-
-- Pipeline run state machine.
-- PipelineRunRecord SQLAlchemy model.
-- StageRunRecord SQLAlchemy model.
-- Alembic migration for execution history.
-- Sequential PipelineRunner.
-- DAG-ordered stage execution.
-- Persistent pipeline and stage statuses.
-- Dependency-blocking behavior.
-- Timeout and cancellation status integration.
-- Execution log-path persistence.
-- Historical pipeline-run retrieval.
-- Explicit approval requirement for local execution.
-- Pipeline-run integration tests.
-
-### Added
-
-- StageAttemptRecord database model.
-- Alembic migration 0004 for execution attempts.
-- Retry-aware PipelineRunner.
-- Configurable retry counts per stage.
-- Individual attempt status persistence.
-- Retry handling for command failures and timeouts.
-- Cancellation-aware retry termination.
-- Dependency blocking after retries are exhausted.
-- Historical attempt retrieval.
-- StageAttemptDetails and attempt_count.
-- Retry and failure propagation integration tests.
-
-### Added
-
-- Durable worker job queue.
-- WorkerJobRecord SQLAlchemy model.
-- Alembic migration 0005.
-- Atomic SQLite job claiming.
-- Worker ownership validation.
-- Per-repository execution serialization.
-- Local worker CLI.
-- Independent Python worker processes.
-- Spawn-based multiprocessing launcher.
-- Job-to-pipeline-run linkage.
-- Worker queue integration tests.
-
-### Added
-
-- WorkerHeartbeatRecord database model.
-- Claim tokens and renewable job leases.
-- Alembic migration 0006.
-- Independent worker heartbeat thread.
-- Lease ownership validation.
-- Early pipeline-run linkage.
-- Stale worker detection.
-- Conservative abandoned-job recovery.
-- Reconciliation of incomplete pipeline execution records.
-- Heartbeat, lease, and crash-recovery tests.
-
-### Added
-
-- Job priority scheduling.
-- Delayed job eligibility using not_before.
-- SchedulingPolicy configuration.
-- Global concurrent-job capacity checks.
-- Repository fairness using historical claim timestamps.
-- Priority-aware atomic SQLite claiming.
-- Alembic migration 0007.
-- Worker pool concurrency configuration.
-- Continuous polling option for scheduled jobs.
-- Scheduler integration and concurrency tests.
-
-### Added
-
-- Native C++20 POSIX stage worker.
-- Versioned worker result protocol.
-- Binary command-argument serialization.
-- C++ process execution with fork and execvp.
-- Native timeout and process-group cancellation.
-- Bounded native stdout and stderr logs.
-- CppStageExecutor Python adapter.
-- Pluggable PipelineRunner execution backend.
-- C++ backend options for Python workers.
-- C++ backend support in the multiprocessing launcher.
-- Native worker integration tests.
-### Added
-
-- GitSnapshot and GitMetadataError.
-- Git commit capture before pipeline execution.
-- Commit SHA, branch, dirty status, date and subject persistence.
-- Alembic migration 0008 for Git-linked run history.
-- GitRunSummary and GitRegression models.
-- GitRegressionHistoryService.
-- Branch-specific execution history queries.
-- Success-to-failure regression detection.
-- Pipeline-version-aware comparisons.
-- Read-only Git history CLI.
-- Git snapshot and regression detection tests.
-
-### Added
-
-- Bounded JUnit-style XML parser.
-- pytest structured test reporting.
-- CTest JUnit result support.
-- GoogleTest XML result support.
-- Per-attempt unique test report files.
-- TestReportRecord SQLAlchemy model.
-- TestCaseRecord SQLAlchemy model.
-- Alembic migration 0009.
-- TestReportService.
-- Missing and invalid report tracking.
-- Individual test execution durations.
-- Failure diagnostics.
-- Git-linked failed test queries.
-- Retry-aware report ingestion.
-- Test parsing and persistence integration tests.
-
-### Added
-
-- TestReliabilityService for read-only test analytics.
-- TestIdentity and TestReliabilitySummary models.
-- Observed failure-rate calculations.
-- Retry fail-then-pass detection.
-- Same-commit variability detection.
-- Pipeline-version-aware reliability grouping.
-- Branch-specific test reliability analysis.
-- Dirty working-tree exclusion for clean-commit evidence.
-- Stable-pass and consistent-failure classifications.
-- Insufficient-data classification.
-- Read-only flaky-test reporting CLI.
-- JSON reliability report export.
-- Database-backed reliability integration tests.
-- End-to-end pytest retry detection test.
-
-### Added
-
-- Whole-process performance benchmark wrapper.
-- Configurable benchmark repetitions and warmups.
-- Per-attempt benchmark JSON reports.
-- BenchmarkReportRecord and BenchmarkSampleRecord.
-- Alembic migration 0010.
-- BenchmarkService for report ingestion.
-- BenchmarkAnalysisService for Git revision comparisons.
-- Median and MAD performance analysis.
-- Configurable slowdown thresholds.
-- Workload and environment fingerprint grouping.
-- Read-only benchmark analysis CLI.
-- Benchmark parser, persistence, migration and regression tests.
-### Added
-
-- Stage-first-attempt failure dataset contract.
-- FailureExample and DatasetExportResult models.
-- SQLAlchemy historical execution extraction.
-- Leakage-aware historical feature engineering.
-- Command fingerprints without raw argument export.
-- Historical test failure-rate features.
-- Historical benchmark measurement features.
-- First-attempt failure labels.
-- Chronological run-grouped dataset splitting.
-- Train, validation and test CSV exports.
-- Separate provenance export.
-- Versioned dataset manifest.
-- Class-balance and small-dataset warnings.
-- Failure dataset CLI.
-- Dataset integration and leakage-prevention tests.
-### Added
-
-- Offline first-attempt failure classifier.
-- Scikit-learn preprocessing and classification pipeline.
-- Categorical one-hot encoding.
-- Missing numeric-value imputation.
-- Feature scaling.
-- Class-balanced logistic regression.
-- Fixed-seed training.
-- Part 26 dataset schema validation.
-- Pipeline-run split contamination checks.
-- Chronological holdout validation.
-- Precision, recall, F1, ROC AUC, and Brier evaluation.
-- Constant prior-probability baseline comparison.
-- Versioned model artifact export.
-- Source dataset and model checksums.
-- Model metadata and dependency tracking.
-- Model training CLI.
-- Twelve ML training integration tests.
-
-### Added
-
-- TrustedFailureModel for local model inference.
-- Model schema and checksum verification.
-- ML package-version compatibility checks.
-- Strict 20-feature inference validation.
-- Live pre-execution feature construction.
-- Historical feature reuse.
-- StagePrediction and ModelInfo result objects.
-- FailurePredictionService for saved pipelines.
-- Read-only failure prediction CLI.
-- JSON prediction output.
-- Opt-in FastAPI prediction endpoint.
-- Loopback-only HTTP access.
-- Model provenance in prediction responses.
-- Inference and API integration tests.
-
-### Added
-
-- Local browser-based developer dashboard.
-- Read-only DashboardService.
-- FastAPI dashboard router.
-- Repository and saved pipeline selectors.
-- Pipeline execution KPI cards.
-- Recent pipeline history table.
-- Git regression summaries.
-- Flaky-test reliability summaries.
-- Benchmark performance-change summaries.
-- Optional ML failure-risk visualization.
-- Manual data refresh.
-- Responsive HTML/CSS interface.
-- Local access and static asset restrictions.
-- Dashboard integration and security tests.
+[0.1.0]: https://github.com/liltaya/buildscope-ai/releases/tag/v0.1.0
