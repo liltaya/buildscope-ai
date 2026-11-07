@@ -7,10 +7,12 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from buildscope.benchmarks.analysis import BenchmarkAnalysisService
+from buildscope.dashboard import panels
 from buildscope.database.session import SessionFactory
 from buildscope.git.regressions import GitRegressionHistoryService
 from buildscope.pipelines.models import PipelineDefinitionRecord
 from buildscope.pipelines.run_models import PipelineRunRecord
+from buildscope.pipelines.service import PipelineService
 from buildscope.repositories.models import Repository
 from buildscope.testing.reliability import TestReliabilityService
 from buildscope.workers.models import WorkerJobRecord
@@ -122,10 +124,55 @@ class DashboardService:
                 .limit(200)
             ).all()
 
+            run_counts = dict(
+                session.execute(
+                    select(PipelineRunRecord.pipeline_definition_id, func.count())
+                    .where(
+                        PipelineRunRecord.pipeline_definition_id.in_(
+                            [definition.id for definition in definitions]
+                        )
+                    )
+                    .group_by(PipelineRunRecord.pipeline_definition_id)
+                ).all()
+            )
+
+            ranked = (
+                select(
+                    PipelineRunRecord.pipeline_definition_id,
+                    PipelineRunRecord.status,
+                    func.row_number()
+                    .over(
+                        partition_by=PipelineRunRecord.pipeline_definition_id,
+                        order_by=(
+                            PipelineRunRecord.queued_at.desc(),
+                            PipelineRunRecord.id.desc(),
+                        ),
+                    )
+                    .label("rank"),
+                )
+                .where(
+                    PipelineRunRecord.pipeline_definition_id.in_(
+                        [definition.id for definition in definitions]
+                    )
+                )
+                .subquery()
+            )
+
+            latest_status: dict[UUID, str] = dict(
+                session.execute(
+                    select(ranked.c.pipeline_definition_id, ranked.c.status).where(
+                        ranked.c.rank == 1
+                    )
+                ).all()
+            )
+
             result["pipelines"] = [
                 {
                     "name": definition.name,
                     "version": definition.version,
+                    "runs": run_counts.get(definition.id, 0),
+                    "last_status": latest_status.get(definition.id),
+                    "created_at": definition.created_at.isoformat(),
                 }
                 for definition in definitions
             ]
@@ -172,18 +219,12 @@ class DashboardService:
         pipeline_name: str,
         version: int,
     ) -> dict[str, object]:
-        """Summarize Git, test and benchmark analysis."""
+        """Return every panel for one saved pipeline version."""
         with self._factory() as session:
-            if (
-                session.get(
-                    Repository,
-                    repository_id,
-                )
-                is None
-            ):
+            if session.get(Repository, repository_id) is None:
                 raise DashboardNotFoundError("Repository was not found")
 
-            definition = session.scalar(
+            definition_id = session.scalar(
                 select(PipelineDefinitionRecord.id).where(
                     PipelineDefinitionRecord.repository_id == repository_id,
                     PipelineDefinitionRecord.name == pipeline_name,
@@ -191,85 +232,72 @@ class DashboardService:
                 )
             )
 
-            if definition is None:
-                raise DashboardNotFoundError("Pipeline version was not found")
+        if definition_id is None:
+            raise DashboardNotFoundError("Pipeline version was not found")
+
+        definition = (
+            PipelineService(self._factory)
+            .get_version(repository_id, pipeline_name, version)
+            .definition
+        )
 
         reliability = TestReliabilityService(self._factory).analyze(
             repository_id,
             pipeline_name,
             version,
-            max_runs=100,
+            max_runs=panels.HISTORY_RUNS,
         )
 
         regressions = GitRegressionHistoryService(self._factory).find_regressions(
             repository_id,
             pipeline_name,
-            limit=200,
+            limit=panels.HISTORY_RUNS,
         )
 
-        benchmarks = BenchmarkAnalysisService(self._factory).compare(
+        comparisons = BenchmarkAnalysisService(self._factory).compare(
             repository_id,
             pipeline_name,
             version,
-            max_runs=100,
+            max_runs=panels.HISTORY_RUNS,
         )
 
-        suspects = [
-            item
-            for item in reliability
-            if item.classification.value
-            in (
-                "RETRY_FLAKY",
-                "SAME_COMMIT_VARIABILITY",
-                "MIXED_UNATTRIBUTED",
-            )
-        ]
+        with self._factory() as session:
+            history = panels.recent_runs(session, definition_id, panels.HISTORY_RUNS)
+            matrix_runs = history[-panels.MATRIX_RUNS :]
+            stage_names = [stage.name for stage in definition.stages]
 
-        matching_regressions = [
-            item for item in regressions if item.failing.pipeline_version == version
-        ]
+            matrix = panels.run_matrix(session, matrix_runs, stage_names)
+            graph = panels.stage_graph(session, definition, history)
+            trend = panels.worst_trending_stage(session, history)
+            windows = panels.regression_windows(regressions, history, version)
+            timeline = panels.commit_timeline(history)
+            flaky = panels.flaky_tests(session, reliability, history)
+            benchmarks = panels.benchmark_series(session, history, comparisons)
 
-        slowdowns = [item for item in benchmarks if item.assessment.value == "SLOWDOWN"]
+        finished = [run for run in history if run.status not in {"QUEUED", "RUNNING"}]
+        succeeded = sum(run.status == "SUCCEEDED" for run in finished)
 
         return {
             "pipeline_name": pipeline_name,
             "version": version,
-            "counts": {
-                "test_identities": len(reliability),
-                "unstable_tests": len(suspects),
-                "git_regressions": len(matching_regressions),
-                "benchmark_slowdowns": len(slowdowns),
+            "summary": {
+                "runs": len(history),
+                "window_runs": panels.HISTORY_RUNS,
+                "pass_rate": (
+                    round(succeeded / len(finished), 4) if finished else None
+                ),
+                "open_regressions": sum(bool(item["open"]) for item in windows),
+                "flaky_tests": sum(
+                    item["classification"] in panels.FLAKY_CLASSIFICATIONS
+                    for item in flaky
+                ),
+                "worst_stage": trend,
             },
-            "flaky_tests": [
-                {
-                    "name": item.identity.display_name,
-                    "classification": (item.classification.value),
-                    "failure_rate": item.failure_rate,
-                    "observations": item.observations,
-                    "retry_recoveries": (item.retry_recoveries),
-                }
-                for item in suspects[:15]
-            ],
-            "git_regressions": [
-                {
-                    "branch": item.branch,
-                    "previous_commit": (item.previous.commit_sha[:12]),
-                    "failing_commit": (item.failing.commit_sha[:12]),
-                }
-                for item in matching_regressions[-15:]
-            ],
-            "benchmark_comparisons": [
-                {
-                    "stage": item.stage_name,
-                    "branch": item.branch,
-                    "previous_commit": (item.baseline_commit[:12]),
-                    "current_commit": (item.current_commit[:12]),
-                    "slowdown_percent": round(
-                        item.slowdown_percent,
-                        2,
-                    ),
-                    "assessment": item.assessment.value,
-                }
-                for item in benchmarks[-15:]
-            ],
+            "stages": graph,
+            "matrix": matrix,
+            "commits": timeline,
+            "regressions": windows,
+            "flaky_tests": flaky,
+            "benchmarks": benchmarks,
+            "test_identities": len(reliability),
         }
