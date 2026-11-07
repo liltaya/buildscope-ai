@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Self, cast
+from typing import Any, Self, cast
 from uuid import uuid4
 
 import joblib
@@ -22,10 +23,14 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 import buildscope.ml.live_features as live
+from apps.api.main import create_app
 from apps.api.routers.predictions import router
+from buildscope.database import create_session_factory, create_sqlite_engine
+from buildscope.database.migrate import upgrade_database
 from buildscope.datasets.failures import (
     FEATURE_COLUMNS,
     SCHEMA_VERSION,
@@ -40,6 +45,7 @@ from buildscope.ml.prediction import (
     StagePrediction,
     TrustedFailureModel,
     _feature_row,
+    load_configured_model,
 )
 from buildscope.ml.service import FailurePredictionService
 from buildscope.ml.training import (
@@ -47,6 +53,11 @@ from buildscope.ml.training import (
     MODEL_SCHEMA_VERSION,
     NUMERIC_COLUMNS,
 )
+from buildscope.pipelines.attempt_models import StageAttemptRecord
+from buildscope.pipelines.run_models import PipelineRunRecord, StageRunRecord
+from buildscope.pipelines.service import PipelineService
+from buildscope.repositories.models import Repository
+from buildscope.workers.models import WorkerJobRecord
 
 
 def sample_features(
@@ -545,7 +556,7 @@ def test_api_returns_readonly_scores(
 
     monkeypatch.setattr(
         api,
-        "_trusted_local_model",
+        "load_configured_model",
         lambda path: model,
     )
 
@@ -644,3 +655,150 @@ def test_api_rejects_remote_clients() -> None:
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize("target", [".", "model.joblib", "metadata.json"])
+def test_model_writable_by_others_is_refused(
+    model_dir: Path,
+    target: str,
+) -> None:
+    path = model_dir / target
+    path.chmod(path.stat().st_mode | 0o020)
+
+    with pytest.raises(PredictionError, match="writable by other users"):
+        TrustedFailureModel.load(model_dir, trusted=True)
+
+
+def test_symlinked_model_file_is_refused(
+    model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    elsewhere = tmp_path / "elsewhere.joblib"
+    (model_dir / "model.joblib").rename(elsewhere)
+    (model_dir / "model.joblib").symlink_to(elsewhere)
+
+    with pytest.raises(PredictionError, match="symlink"):
+        TrustedFailureModel.load(model_dir, trusted=True)
+
+
+def test_configured_model_is_reverified_after_replacement(
+    model_dir: Path,
+) -> None:
+    first = load_configured_model(model_dir)
+    assert load_configured_model(model_dir) is first
+
+    (model_dir / "model.joblib").write_bytes(b"replaced after first load")
+
+    with pytest.raises(PredictionError, match="checksum"):
+        load_configured_model(model_dir)
+
+
+def test_real_prediction_never_enqueues_or_executes(
+    model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    for args in (
+        ["init", "-q", "-b", "main"],
+        [
+            "-c",
+            "user.name=F",
+            "-c",
+            "user.email=f@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "initial",
+        ],
+    ):
+        subprocess.run(["git", *args], cwd=project, check=True)
+
+    database = tmp_path / "predict.db"
+    upgrade_database(database)
+    engine = create_sqlite_engine(database)
+    factory = create_session_factory(engine)
+
+    with factory.begin() as session:
+        repository = Repository(name="predict", local_path=str(project))
+        session.add(repository)
+        session.flush()
+        repository_id = repository.id
+
+    PipelineService(factory).create_version(
+        repository_id,
+        "name: quality\nstages:\n  - name: checks\n"
+        "    command: [rm, -rf, /should-never-run]\n",
+    )
+
+    tables = (PipelineRunRecord, StageRunRecord, StageAttemptRecord, WorkerJobRecord)
+
+    def row_counts() -> list[int]:
+        with factory() as session:
+            return [
+                session.scalar(select(func.count()).select_from(table)) or 0
+                for table in tables
+            ]
+
+    before = row_counts()
+    launched: list[list[str]] = []
+    real_popen = subprocess.Popen
+
+    def git_only_popen(
+        args: list[str],
+        *rest: Any,
+        **kwargs: Any,
+    ) -> subprocess.Popen[Any]:
+        launched.append(list(args))
+
+        if Path(args[0]).name != "git":
+            raise AssertionError(f"prediction tried to run {args!r}")
+
+        return real_popen(args, *rest, **kwargs)
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("prediction tried to enqueue or run a pipeline")
+
+    monkeypatch.setattr(subprocess, "Popen", git_only_popen)
+    monkeypatch.setattr(
+        "buildscope.workers.queue.WorkerQueue.enqueue_version", forbidden
+    )
+    monkeypatch.setattr(
+        "buildscope.pipelines.runner.PipelineRunner.run_version", forbidden
+    )
+    monkeypatch.setattr("buildscope.execution.executor.execute_command", forbidden)
+
+    model = TrustedFailureModel.load(model_dir, trusted=True)
+    assessment = FailurePredictionService(factory, model).predict_pipeline(
+        repository_id, "quality", 1
+    )
+
+    assert [item.stage_name for item in assessment.predictions] == ["checks"]
+
+    monkeypatch.setenv("BUILDSCOPE_ENABLE_LOCAL_PREDICTIONS", "1")
+    monkeypatch.setenv("BUILDSCOPE_TRUSTED_MODEL_DIR", str(model_dir))
+    monkeypatch.setenv("BUILDSCOPE_DATABASE_PATH", str(database))
+
+    with TestClient(
+        create_app(database_path=database),
+        client=("127.0.0.1", 50000),
+        base_url="http://127.0.0.1",
+    ) as client:
+        response = client.post(
+            "/predictions/stages",
+            json={
+                "repository_id": str(repository_id),
+                "pipeline_name": "quality",
+                "version": 1,
+            },
+        )
+
+    engine.dispose()
+
+    assert response.status_code == 200, response.text
+    assert response.json()["predictions"][0]["stage_name"] == "checks"
+    assert launched, "expected read-only git metadata calls"
+    assert all(Path(args[0]).name == "git" for args in launched)
+    assert row_counts() == before
