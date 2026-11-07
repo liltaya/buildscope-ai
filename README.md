@@ -7,6 +7,8 @@ build, which tests are flaky rather than broken, which stage got slower and by
 how much, and which stages are likely to fail next. It is a single-user tool: no
 server to run, no account, nothing leaves the machine.
 
+![BuildScope dashboard for the demo pipeline: run matrix of stages by runs, pipeline graph, stage failure risk with holdout ROC AUC 0.84, and a commit timeline with one recovered and one open regression window](docs/images/dashboard.png)
+
 ## Quickstart
 
 Requires Python 3.12 and Git on macOS or Linux.
@@ -36,7 +38,7 @@ without cloning.
 
 ## What it does
 
-**Pipelines and execution**
+### Pipelines and execution
 
 - Pipelines are YAML lists of stages with dependencies, timeouts, retries, test
   reports and benchmarks. They are validated as a DAG and saved as immutable
@@ -51,7 +53,7 @@ without cloning.
 - An optional C++20 worker supervises stages natively with the same results as the
   Python backend.
 
-**History analysis**
+### History analysis
 
 - Every run records its commit, branch and dirty state. A failure on a commit
   directly after a pass on the previous commit opens a regression window, last
@@ -63,7 +65,7 @@ without cloning.
   only if its median rose by at least 20 % and by more than three times the
   combined median absolute deviation.
 
-**Failure prediction**
+### Failure prediction
 
 - History exports to a dataset where each example only sees runs that finished
   before it was queued, with chronological splits grouped by run.
@@ -77,7 +79,7 @@ without cloning.
 - The dashboard shows per-stage scores from a model you trust, next to that
   model's holdout ROC AUC. Scores are uncalibrated rankings, not probabilities.
 
-**Dashboard**
+### Dashboard
 
 A dense, read-only view for one pipeline version:
 
@@ -153,7 +155,7 @@ BuildScope assumes one trusted user on one machine.
 - Models are loaded only from directories you own that no one else can write, and
   only if their checksum matches.
 
-**Limitations**
+### Limitations
 
 - Stages are not sandboxed. An approved pipeline can do anything your account can.
 - There is no authentication. Do not expose the port through a proxy or tunnel.
@@ -203,6 +205,16 @@ matches `pyproject.toml`, reruns `python -m buildscope.release preflight`, build
 the wheel and sdist, writes `SHA256SUMS`, and publishes a GitHub release with the
 changelog section as notes. The checklist and backup procedures are in
 [docs/release.md](docs/release.md).
+
+## Status
+
+Version 0.1.0 is the first release. BuildScope is a local, single-user tool by
+design: it binds to loopback, there is no hosted deployment and none is planned.
+What "working" means here is that the demo above and the pipeline commands in
+[docs/pipelines.md](docs/pipelines.md) run from a clean install, and that every
+push is checked on Ubuntu and macOS by Ruff, mypy, a CMake build with CTest,
+pytest, a wheel install smoke test, `pip-audit` and gitleaks. The limitations
+listed above are the known gaps.
 
 ## License
 
