@@ -4,46 +4,12 @@ from pathlib import Path
 
 from alembic import context
 
-from buildscope.benchmarks.models import (
-    BenchmarkReportRecord,
-    BenchmarkSampleRecord,
-)
-from buildscope.database.base import Base
 from buildscope.database.engine import create_sqlite_engine
-from buildscope.pipelines.attempt_models import StageAttemptRecord
-from buildscope.pipelines.models import PipelineDefinitionRecord
-from buildscope.pipelines.run_models import (
-    PipelineRunRecord,
-    StageRunRecord,
-)
-from buildscope.repositories.models import Repository
-from buildscope.testing.models import (
-    TestCaseRecord,
-    TestReportRecord,
-)
-from buildscope.workers.models import (
-    WorkerHeartbeatRecord,
-    WorkerJobRecord,
-)
+from buildscope.database.models import full_metadata
 
 config = context.config
 
-
-_ = (
-    Repository,
-    PipelineDefinitionRecord,
-    PipelineRunRecord,
-    StageRunRecord,
-    StageAttemptRecord,
-    WorkerJobRecord,
-    WorkerHeartbeatRecord,
-    TestReportRecord,
-    TestCaseRecord,
-    BenchmarkReportRecord,
-    BenchmarkSampleRecord,
-)
-
-target_metadata = Base.metadata
+target_metadata = full_metadata()
 
 
 def run_migrations_online() -> None:
