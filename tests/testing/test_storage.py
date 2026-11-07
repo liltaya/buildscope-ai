@@ -22,6 +22,7 @@ from buildscope.pipelines.run_models import (
 from buildscope.pipelines.service import PipelineService
 from buildscope.pipelines.state import RunStatus
 from buildscope.repositories.models import Repository
+from buildscope.testing.reports import ReportKind
 from buildscope.testing.service import (
     TestReportService as ReportService,
 )
@@ -192,3 +193,103 @@ def test_duplicate_ingestion_rejected(
             "pytest",
             report,
         )
+
+
+# Shapes copied from `ctest --output-junit` (CMake 4) and
+# `--gtest_output=xml` (GoogleTest 1.18), trimmed to the fields parsed.
+CTEST_REPORT = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Linux-c++" tests="3" failures="1" disabled="0" skipped="1"
+    hostname="ci" time="0" timestamp="2026-11-07T13:19:55">
+  <testcase name="WorkerTest.Success" classname="WorkerTest.Success"
+      time="0.0592847" status="run">
+    <properties/><system-out>[       OK ]</system-out>
+  </testcase>
+  <testcase name="WorkerTest.Timeout" classname="WorkerTest.Timeout"
+      time="1.08" status="fail">
+    <failure message="Failed"/>
+  </testcase>
+  <testcase name="WorkerTest.Disabled" classname="WorkerTest.Disabled"
+      time="0" status="disabled">
+    <skipped message="Disabled"/>
+  </testcase>
+</testsuite>
+"""
+
+GTEST_REPORT = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="3" failures="1" disabled="1" errors="0" time="0.058"
+    name="AllTests">
+  <testsuite name="WorkerTest" tests="3" failures="1" disabled="1"
+      skipped="0" errors="0" time="0.058">
+    <testcase name="Success" file="worker_test.cpp" line="164" status="run"
+        result="completed" time="0.01" classname="WorkerTest" />
+    <testcase name="Timeout" file="worker_test.cpp" line="201" status="run"
+        result="completed" time="1.047" classname="WorkerTest">
+      <failure message="Expected equality" type=""/>
+    </testcase>
+    <testcase name="DISABLED_Slow" file="worker_test.cpp" line="230"
+        status="notrun" result="suppressed" time="0" classname="WorkerTest" />
+  </testsuite>
+</testsuites>
+"""
+
+
+@pytest.mark.parametrize(
+    ("kind", "xml"),
+    [
+        ("ctest", CTEST_REPORT),
+        ("gtest", GTEST_REPORT),
+    ],
+)
+def test_native_reports_persist_cases(
+    context: tuple[ReportService, UUID, UUID, Path],
+    kind: ReportKind,
+    xml: str,
+) -> None:
+    service, attempt_id, run_id, root = context
+    report = root / f"{kind}.xml"
+    report.write_text(xml)
+
+    ingested = service.ingest(attempt_id, kind, report)
+
+    assert ingested.parse_status == "PARSED"
+    assert ingested.case_count == 3
+    assert ingested.error_message is None
+    assert [case.outcome for case in service.list_cases(attempt_id)] == [
+        "PASSED",
+        "FAILED",
+        "SKIPPED",
+    ]
+
+    failures = service.list_failed_for_run(run_id)
+    assert len(failures) == 1
+    assert failures[0].test_name.endswith("Timeout")
+
+
+@pytest.mark.parametrize("kind", ["ctest", "gtest"])
+@pytest.mark.parametrize(
+    ("contents", "expected"),
+    [
+        (None, "MISSING"),
+        ('<testsuite name="cut"><testcase name="a"', "INVALID"),
+        ("", "INVALID"),
+    ],
+)
+def test_native_missing_or_malformed_is_recorded(
+    context: tuple[ReportService, UUID, UUID, Path],
+    kind: ReportKind,
+    contents: str | None,
+    expected: str,
+) -> None:
+    service, attempt_id, _, root = context
+    report = root / f"{kind}.xml"
+
+    if contents is not None:
+        report.write_text(contents)
+
+    result = service.ingest(attempt_id, kind, report)
+
+    assert result.parse_status == expected
+    assert result.case_count == 0
+    assert result.error_message
+    assert service.list_cases(attempt_id) == ()
+    assert service.get_report(attempt_id) == result

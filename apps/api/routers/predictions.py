@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
-from functools import lru_cache
 from ipaddress import ip_address
 from pathlib import Path
 from uuid import UUID
@@ -16,10 +15,11 @@ from buildscope.database import (
     create_session_factory,
     create_sqlite_engine,
 )
+from buildscope.git.history import GitMetadataError
 from buildscope.ml.live_features import PredictionContextError
 from buildscope.ml.prediction import (
     PredictionError,
-    TrustedFailureModel,
+    load_configured_model,
 )
 from buildscope.ml.service import FailurePredictionService
 
@@ -65,16 +65,6 @@ class PipelinePredictionResponse(BaseModel):
     predictions: list[StageRiskResponse]
 
 
-@lru_cache(maxsize=1)
-def _trusted_local_model(
-    path: str,
-) -> TrustedFailureModel:
-    return TrustedFailureModel.load(
-        Path(path),
-        trusted=True,
-    )
-
-
 @router.post(
     "/stages",
     response_model=PipelinePredictionResponse,
@@ -117,9 +107,7 @@ def predict_stages(
         )
 
     try:
-        model = _trusted_local_model(
-            str(Path(model_path).expanduser().resolve(strict=True))
-        )
+        model = load_configured_model(Path(model_path))
 
         engine = create_sqlite_engine(
             Path(database_path).expanduser().resolve(strict=True)
@@ -150,6 +138,12 @@ def predict_stages(
         raise HTTPException(
             status_code=404,
             detail=str(exc),
+        ) from exc
+
+    except GitMetadataError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository Git metadata unavailable",
         ) from exc
 
     finally:

@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
+import os
+import stat
+import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,23 +53,27 @@ class ModelInfo:
     probability_calibrated: bool = False
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
+def _require_private(path: Path) -> None:
+    """Refuse model files another local user could have written."""
+    try:
+        info = path.lstat()
+    except OSError as exc:
+        raise PredictionError(f"Model path is inaccessible: {path.name}") from exc
 
-    with path.open("rb") as stream:
-        for block in iter(
-            lambda: stream.read(1024 * 1024),
-            b"",
-        ):
-            digest.update(block)
+    if stat.S_ISLNK(info.st_mode):
+        raise PredictionError(f"Model path must not be a symlink: {path.name}")
 
-    return digest.hexdigest()
+    if info.st_uid != os.getuid():
+        raise PredictionError(f"Model path is owned by another user: {path.name}")
+
+    if info.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise PredictionError(f"Model path is writable by other users: {path.name}")
 
 
 def _feature_row(
     features: Mapping[str, object],
 ) -> np.ndarray:
-    """Convert live features to the exact Part 27 model order."""
+    """Convert live features to the exact training column order."""
     if set(features) != set(FEATURE_COLUMNS):
         missing = set(FEATURE_COLUMNS) - set(features)
         extra = set(features) - set(FEATURE_COLUMNS)
@@ -131,6 +139,10 @@ class TrustedFailureModel:
         if not root.is_dir():
             raise PredictionError("Model location is not a directory")
 
+        _require_private(root)
+        _require_private(root / "metadata.json")
+        _require_private(root / "model.joblib")
+
         try:
             metadata: Any = json.loads(
                 (root / "metadata.json").read_text(encoding="utf-8")
@@ -150,7 +162,9 @@ class TrustedFailureModel:
             or metadata.get("numeric_columns") != list(NUMERIC_COLUMNS)
             or metadata.get("estimator") != "LogisticRegression"
         ):
-            raise PredictionError("Model metadata is not compatible with Part 27")
+            raise PredictionError(
+                "Model metadata does not match this BuildScope version"
+            )
 
         versions = metadata.get("python_packages")
 
@@ -177,21 +191,21 @@ class TrustedFailureModel:
 
         try:
             expected = metadata.get("model_joblib_sha256")
-
-            actual = _sha256(model_path)
+            raw = model_path.read_bytes()
 
         except OSError as exc:
             raise PredictionError("Model file is missing or inaccessible") from exc
 
+        actual = hashlib.sha256(raw).hexdigest()
+
         if not isinstance(expected, str) or actual != expected:
             raise PredictionError("Model checksum differs from metadata")
 
-        # SECURITY:
-        # joblib uses pickle-based deserialization.
-        # Only load an artifact from a trusted directory.
-        # A checksum stored beside the model is NOT
-        # proof of authenticity.
-        loaded: Any = joblib.load(model_path)
+        # joblib unpickles, which can run arbitrary code. The ownership
+        # checks above are the real trust boundary: the checksum sits
+        # beside the model, so it only catches accidental corruption.
+        # Hashing and loading the same bytes avoids a swap in between.
+        loaded: Any = joblib.load(io.BytesIO(raw))
 
         if (
             not isinstance(loaded, Pipeline)
@@ -240,3 +254,39 @@ class TrustedFailureModel:
             failure_score=score,
             predicted_failure=(score >= self.info.decision_threshold),
         )
+
+
+_CacheKey = tuple[str, tuple[int, int, int], tuple[int, int, int]]
+
+_cache_lock = threading.Lock()
+_cached: tuple[_CacheKey, TrustedFailureModel] | None = None
+
+
+def _signature(path: Path) -> tuple[int, int, int]:
+    info = path.stat()
+    return (info.st_ino, info.st_size, info.st_mtime_ns)
+
+
+def load_configured_model(directory: Path) -> TrustedFailureModel:
+    """Load the operator-configured model, re-verifying it if it changed."""
+    global _cached
+
+    root = directory.expanduser().resolve(strict=True)
+
+    try:
+        key: _CacheKey = (
+            str(root),
+            _signature(root / "metadata.json"),
+            _signature(root / "model.joblib"),
+        )
+    except OSError as exc:
+        raise PredictionError("Model files are missing or inaccessible") from exc
+
+    with _cache_lock:
+        if _cached is not None and _cached[0] == key:
+            return _cached[1]
+
+        model = TrustedFailureModel.load(root, trusted=True)
+        _cached = (key, model)
+
+        return model

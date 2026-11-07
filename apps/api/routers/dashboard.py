@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated
@@ -28,10 +27,11 @@ from buildscope.database import (
     create_session_factory,
     create_sqlite_engine,
 )
+from buildscope.git.history import GitMetadataError
 from buildscope.ml.live_features import PredictionContextError
 from buildscope.ml.prediction import (
     PredictionError,
-    TrustedFailureModel,
+    load_configured_model,
 )
 from buildscope.ml.service import FailurePredictionService
 
@@ -224,18 +224,6 @@ def insights(
     )
 
 
-@lru_cache(maxsize=2)
-def _model(
-    model_dir: str,
-) -> TrustedFailureModel:
-    """Load an explicitly trusted local model."""
-    # This path is configured by the local operator, not an HTTP client.
-    return TrustedFailureModel.load(
-        Path(model_dir),
-        trusted=True,
-    )
-
-
 @router.get("/api/predictions")
 def predictions(
     response: Response,
@@ -264,7 +252,8 @@ def predictions(
         }
 
     try:
-        model = _model(str(Path(configured).expanduser().resolve(strict=True)))
+        # The path comes from the operator's environment, never a client.
+        model = load_configured_model(Path(configured))
 
     except (
         OSError,
@@ -311,4 +300,10 @@ def predictions(
         raise HTTPException(
             status_code=404,
             detail="Pipeline unavailable",
+        ) from exc
+
+    except GitMetadataError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository Git metadata unavailable",
         ) from exc
