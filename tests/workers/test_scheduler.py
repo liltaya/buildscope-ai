@@ -388,3 +388,62 @@ def test_concurrent_claims_respect_capacity(
         )
 
     assert sum(result is not None for result in results) == 1
+
+
+def claim_all(queue: WorkerQueue, count: int) -> list[UUID]:
+    """Claim and complete jobs one at a time, returning the claim order."""
+    order: list[UUID] = []
+
+    for number in range(count):
+        worker = f"drain-{number}"
+        claim = queue.claim_next(worker, max_running_jobs=1)
+
+        assert claim is not None
+        order.append(claim.id)
+        complete(queue, claim.id, worker, claim.claim_token)
+
+    assert queue.claim_next("drain-final", max_running_jobs=1) is None
+
+    return order
+
+
+def test_priority_outranks_repository_rotation(
+    context: TestContext,
+) -> None:
+    queue, _, (alpha, beta, _) = context
+
+    a1 = enqueue(queue, alpha, priority=9)
+    b1 = enqueue(queue, beta, priority=1)
+    a2 = enqueue(queue, alpha, priority=9)
+
+    # alpha was just served, but its remaining high-priority job still
+    # runs before beta's low-priority job.
+    assert claim_all(queue, 3) == [a1, a2, b1]
+
+
+def test_fifo_across_never_claimed_repositories(
+    context: TestContext,
+) -> None:
+    queue, _, (alpha, beta, gamma) = context
+
+    g1 = enqueue(queue, gamma)
+    a1 = enqueue(queue, alpha)
+    b1 = enqueue(queue, beta)
+
+    assert claim_all(queue, 3) == [g1, a1, b1]
+
+
+def test_rotation_then_fifo_once_repositories_are_level(
+    context: TestContext,
+) -> None:
+    queue, _, (alpha, beta, gamma) = context
+
+    a1 = enqueue(queue, alpha)
+    a2 = enqueue(queue, alpha)
+    a3 = enqueue(queue, alpha)
+    b1 = enqueue(queue, beta)
+    g1 = enqueue(queue, gamma)
+
+    # Fairness here means least-recently-served repository first; queue
+    # order only breaks ties, so beta and gamma are not starved by alpha.
+    assert claim_all(queue, 5) == [a1, b1, g1, a2, a3]
