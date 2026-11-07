@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format
+        run: ruff format --check .
+
+      - name: Mypy
+        run: mypy buildscope apps tests
+
+      - name: Configure C++ worker
+        run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build C++ worker
+        run: cmake --build build/ci --parallel
+
+      - name: CTest
+        run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Pytest
+        run: pytest -q -rs
+
+  package:
+    name: package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install build==1.6.1
+          python -m build --wheel --sdist --outdir dist
+
+      - name: Install wheel outside the source tree
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv clean-env
+          clean-env/bin/python -m pip install "$GITHUB_WORKSPACE"/dist/*.whl
+
+      - name: Smoke test installed package
+        working-directory: ${{ runner.temp }}
+        run: |
+          clean-env/bin/buildscope --help
+          clean-env/bin/buildscope serve \
+            --port 8765 \
+            --database "$RUNNER_TEMP/smoke.db" > serve.log 2>&1 &
+
+          for attempt in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8765/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -sf http://127.0.0.1:8765/health
+          curl -sf http://127.0.0.1:8765/health/ready
+
+      - name: Show server log on failure
+        if: failure()
+        working-directory: ${{ runner.temp }}
+        run: cat serve.log
+
+  dependency-audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Resolve runtime and development dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/audit-env"
+          "$RUNNER_TEMP/audit-env/bin/python" -m pip install ".[dev]"
+          "$RUNNER_TEMP/audit-env/bin/python" -m pip freeze \
+            --exclude buildscope-ai > requirements-audit.txt
+
+      - name: pip-audit
+        run: |
+          python -m pip install pip-audit==2.10.1
+          pip-audit \
+            --requirement requirements-audit.txt \
+            --no-deps \
+            --disable-pip \
+            --strict
