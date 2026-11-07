@@ -40,6 +40,9 @@ from buildscope.testing.reliability import (
 from buildscope.testing.reliability import (
     TestReliabilityService as ReliabilityService,
 )
+from buildscope.testing.reliability import (
+    _classification,
+)
 
 
 @dataclass(frozen=True)
@@ -506,3 +509,41 @@ def test_cli_text_and_json(
     assert flaky_main(args + ["--json"]) == 0
 
     assert '"retry_recoveries": 1' in (capsys.readouterr().out)
+
+
+def test_retry_evidence_takes_precedence_over_same_commit(
+    context: Context,
+) -> None:
+    add_run(context, ["FAILED", "PASSED"], hour=0)
+    add_run(context, ["FAILED"], hour=1)
+
+    result = analyze(context)[0]
+
+    # Both signals are present; a pass on retry inside one run is the
+    # most direct evidence, so it determines the label.
+    assert result.retry_recoveries == 1
+    assert result.same_commit_mixed_groups == 1
+    assert result.classification == Category.RETRY_FLAKY
+
+
+@pytest.mark.parametrize(
+    ("passed", "failures", "retries", "same_commit", "expected"),
+    [
+        (1, 1, 1, 1, Category.RETRY_FLAKY),
+        (1, 1, 0, 1, Category.SAME_COMMIT_VARIABILITY),
+        (1, 1, 0, 0, Category.MIXED_UNATTRIBUTED),
+        (0, 2, 0, 0, Category.CONSISTENT_FAILURE),
+        (2, 0, 0, 0, Category.STABLE_PASS),
+        (1, 0, 0, 0, Category.INSUFFICIENT_DATA),
+        (0, 1, 0, 0, Category.INSUFFICIENT_DATA),
+        (0, 0, 0, 0, Category.INSUFFICIENT_DATA),
+    ],
+)
+def test_classification_rule_order(
+    passed: int,
+    failures: int,
+    retries: int,
+    same_commit: int,
+    expected: Category,
+) -> None:
+    assert _classification(passed, failures, retries, same_commit) == expected
