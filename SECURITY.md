@@ -8,10 +8,11 @@
 
 ## Reporting a vulnerability
 
-Report vulnerabilities privately through GitHub's
-[private vulnerability reporting](https://github.com/liltaya/buildscope-ai/security/advisories/new).
-Please do not open a public issue. Include the version, the steps to reproduce
-and the impact you expect. You should get a reply within seven days.
+Report vulnerabilities privately. On the repository's **Security** tab, choose
+**Report a vulnerability** if it is offered. If it is not, open an issue titled
+"Security contact request" that contains no details, and you will be given a
+private channel. Include the version, the steps to reproduce and the impact you
+expect. You should get a reply within seven days.
 
 ## Security model
 
