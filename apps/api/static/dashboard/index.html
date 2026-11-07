@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>BuildScope</title>
+  <link rel="stylesheet" href="/dashboard/assets/styles.css">
+  <script src="/dashboard/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#panels">Skip to panels</a>
+
+  <header class="bar">
+    <span class="product">buildscope</span>
+    <nav class="crumbs" aria-label="Selection" id="crumbs"></nav>
+    <span class="bar-meta" id="loaded-at" aria-live="polite"></span>
+    <button type="button" class="button" id="refresh">Refresh</button>
+  </header>
+
+  <div class="layout">
+    <aside class="rail" aria-label="Repositories and pipelines">
+      <section>
+        <h2 class="rail-title">Repositories</h2>
+        <ul class="rail-list" id="repositories"></ul>
+      </section>
+      <section>
+        <h2 class="rail-title">Pipelines</h2>
+        <ul class="rail-list" id="pipelines"></ul>
+      </section>
+      <p class="rail-note">Read-only view of local history. Nothing here runs or enqueues work.</p>
+    </aside>
+
+    <main id="panels" tabindex="-1">
+      <p class="notice" id="notice" role="status" hidden></p>
+
+      <section class="summary" aria-label="Summary" id="summary"></section>
+
+      <div class="grid">
+        <section class="panel span-12" aria-labelledby="matrix-title">
+          <header class="panel-head">
+            <h2 id="matrix-title">Run matrix</h2>
+            <span class="panel-meta" id="matrix-meta"></span>
+          </header>
+          <div class="panel-body scroll-x" id="matrix"></div>
+          <div class="legend" id="matrix-legend"></div>
+        </section>
+
+        <section class="panel span-7" aria-labelledby="dag-title">
+          <header class="panel-head">
+            <h2 id="dag-title">Pipeline graph</h2>
+            <span class="panel-meta" id="dag-meta"></span>
+          </header>
+          <div class="panel-body scroll-x" id="dag"></div>
+        </section>
+
+        <section class="panel span-5" aria-labelledby="risk-title">
+          <header class="panel-head">
+            <h2 id="risk-title">Stage failure risk</h2>
+            <span class="panel-meta" id="risk-meta"></span>
+          </header>
+          <div class="panel-body" id="risk"></div>
+        </section>
+
+        <section class="panel span-12" aria-labelledby="timeline-title">
+          <header class="panel-head">
+            <h2 id="timeline-title">Commits and regression windows</h2>
+            <span class="panel-meta" id="timeline-meta"></span>
+          </header>
+          <div class="panel-body scroll-x" id="timeline"></div>
+          <ol class="windows" id="windows"></ol>
+        </section>
+
+        <section class="panel span-7" aria-labelledby="flaky-title">
+          <header class="panel-head">
+            <h2 id="flaky-title">Unstable tests</h2>
+            <span class="panel-meta" id="flaky-meta"></span>
+          </header>
+          <div class="panel-body scroll-x" id="flaky"></div>
+        </section>
+
+        <section class="panel span-5" aria-labelledby="bench-title">
+          <header class="panel-head">
+            <h2 id="bench-title">Benchmarks</h2>
+            <span class="panel-meta" id="bench-meta"></span>
+          </header>
+          <div class="panel-body" id="bench"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+</body>
+</html>
