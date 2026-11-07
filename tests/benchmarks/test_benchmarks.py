@@ -509,3 +509,81 @@ def test_actual_pipeline_writes_per_attempt_report(
 
     finally:
         engine.dispose()
+
+
+# Baseline: median 1.00 s, MAD 0.01 s. With the default 20 % threshold
+# and 3x noise multiplier, each case below sits clearly on one side of
+# both boundaries rather than on them.
+QUADRANT_BASELINE = [0.98, 0.99, 1.00, 1.01, 1.02]
+
+
+@pytest.mark.parametrize(
+    ("current", "percent", "expected"),
+    [
+        pytest.param(
+            [1.48, 1.49, 1.50, 1.51, 1.52],
+            50.0,
+            SlowdownAssessment.SLOWDOWN,
+            id="above-threshold-above-noise",
+        ),
+        pytest.param(
+            [1.09, 1.095, 1.10, 1.105, 1.11],
+            10.0,
+            SlowdownAssessment.NO_CLEAR_SLOWDOWN,
+            id="below-threshold-above-noise",
+        ),
+        pytest.param(
+            [1.10, 1.30, 1.50, 1.70, 1.90],
+            50.0,
+            SlowdownAssessment.NO_CLEAR_SLOWDOWN,
+            id="above-threshold-below-noise",
+        ),
+        pytest.param(
+            [0.90, 1.00, 1.10, 1.20, 1.30],
+            10.0,
+            SlowdownAssessment.NO_CLEAR_SLOWDOWN,
+            id="below-threshold-below-noise",
+        ),
+    ],
+)
+def test_threshold_and_noise_quadrants(
+    history: History,
+    current: list[float],
+    percent: float,
+    expected: SlowdownAssessment,
+) -> None:
+    factory, repo_id, _, _ = history
+
+    add_sample_run(history, "a" * 40, QUADRANT_BASELINE, day=0)
+    add_sample_run(history, "b" * 40, current, day=1)
+
+    result = BenchmarkAnalysisService(factory).compare(repo_id, "perf", 1)
+
+    assert len(result) == 1
+    assert result[0].baseline_median_seconds == pytest.approx(1.0)
+    assert result[0].baseline_mad_seconds == pytest.approx(0.01)
+    assert result[0].current_mad_seconds > 0
+    assert result[0].slowdown_percent == pytest.approx(percent)
+    assert result[0].assessment == expected
+
+
+def test_too_few_samples_is_not_assessed(
+    history: History,
+) -> None:
+    factory, repo_id, _, _ = history
+
+    add_sample_run(history, "a" * 40, QUADRANT_BASELINE, day=0)
+    add_sample_run(history, "b" * 40, [1.48, 1.49, 1.50, 1.51, 1.52], day=1)
+
+    # Reports need at least five iterations to be ingested, so a commit
+    # is short of samples only when the caller asks for more than that.
+    result = BenchmarkAnalysisService(factory).compare(
+        repo_id,
+        "perf",
+        1,
+        min_samples=10,
+    )
+
+    assert len(result) == 1
+    assert result[0].current_samples == 5
+    assert result[0].assessment == SlowdownAssessment.INSUFFICIENT_SAMPLES
