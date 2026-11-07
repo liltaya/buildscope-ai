@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import buildscope
+from buildscope.release.__main__ import main as release_main
 from buildscope.release.preflight import (
     DASHBOARD_ASSETS,
     changelog_section,
@@ -187,6 +188,21 @@ def test_changelog_section_stops_at_next_release() -> None:
     assert "Prototype." not in section
 
 
+def test_changelog_section_drops_link_definitions() -> None:
+    changelog = f"## [{VERSION}] - 2026-11-07\n\n- Added things.\n\n[{VERSION}]: https://example.com\n"
+
+    assert changelog_section(changelog, VERSION) == "- Added things."
+
+
+def test_repository_changelog_has_current_release() -> None:
+    root = Path(__file__).resolve().parents[2]
+    section = changelog_section((root / "CHANGELOG.md").read_text(), VERSION)
+
+    assert section is not None
+    assert "### Added" in section
+    assert "releases/tag" not in section
+
+
 def make_wheel(path: Path, names: list[str]) -> Path:
     with zipfile.ZipFile(path, "w") as archive:
         for name in names:
@@ -223,3 +239,13 @@ def test_wheel_with_private_files_fails(tmp_path: Path) -> None:
 
     assert not finding.ok
     assert "buildscope.db" in finding.detail
+
+
+def test_notes_command_prints_changelog_section(
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert release_main(["notes", "--root", str(repo)]) == 0
+    assert capsys.readouterr().out.strip() == "### Added\n\n- Pipeline runner."
+
+    assert release_main(["notes", "--root", str(repo), "--version", "9.9.9"]) == 1

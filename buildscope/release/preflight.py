@@ -36,6 +36,8 @@ PRIVATE_PATTERNS = (
 
 ALLOWED_PRIVATE_LOOKALIKES = frozenset({".env.example"})
 
+LINK_DEFINITION = re.compile(r"^\[[^\]]+\]: \S+")
+
 REQUIRED_FILES = ("LICENSE", "SECURITY.md", "CHANGELOG.md")
 
 DASHBOARD_ASSETS = (
@@ -147,8 +149,12 @@ def changelog_section(changelog: str, version: str) -> str | None:
 
     following = re.compile(r"^## \[", re.MULTILINE).search(changelog, match.end())
     end = following.start() if following else len(changelog)
+    body = changelog[match.end() : end]
 
-    return changelog[match.end() : end].strip()
+    # Link reference definitions at the end of the file are not release notes.
+    lines = [line for line in body.splitlines() if not LINK_DEFINITION.match(line)]
+
+    return "\n".join(lines).strip()
 
 
 def check_changelog(root: Path) -> Finding:
