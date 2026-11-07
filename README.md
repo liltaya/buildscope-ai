@@ -24,10 +24,11 @@ buildscope serve --database data/demo.db --model data/demo-model
 
 Open <http://127.0.0.1:8000/dashboard>.
 
-The demo records 22 commits of a payments service with two runs each: one
-regression that is still open, one test that only passes on retry, a 44 %
-benchmark slowdown and a trained failure model. The commands in the demo
-pipeline are recorded, never executed.
+The demo records 22 commits of a payments service with two runs each: a lint
+regression fixed three commits later, an integration-test regression that is
+still open, one test that only passes on retry, a 44 % benchmark slowdown and
+a failure model trained on that history. The commands in the demo pipeline are
+recorded, never executed.
 
 Each [release](https://github.com/liltaya/buildscope-ai/releases) also attaches
 a wheel with a `SHA256SUMS` file; `pip install` the wheel to run BuildScope
@@ -66,6 +67,11 @@ without cloning.
 
 - History exports to a dataset where each example only sees runs that finished
   before it was queued, with chronological splits grouped by run.
+- Features are a stage's own track record: its failure, timeout and
+  retry-recovery rates, the share of its last five runs that failed, its last
+  result, its test failure rate and the Git worktree state. Counts, calendar
+  fields and stage identity are left out: under a chronological split they let
+  a model learn when a run happened rather than whether it fails.
 - A logistic regression is trained and evaluated on a holdout against a
   constant-prior baseline.
 - The dashboard shows per-stage scores from a model you trust, next to that

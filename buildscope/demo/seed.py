@@ -65,7 +65,17 @@ COMMITS = (
     "handle empty statement files",
 )
 
+# Fixed so documentation and the seed's own hints can show a working request.
+DEMO_REPOSITORY_ID = UUID("86d53822-f963-5af9-9823-f028e263a8fa")
+
 REGRESSION_COMMIT = 17
+
+# lint breaks on commit 7 and is fixed on commit 10: a closed regression
+# window on the timeline, and the only persistent failure inside the model's
+# training window. Without one, training data holds nothing but one-off
+# flakes, and no model can learn that a stage failing in its last few runs
+# tends to fail again.
+FIXED_REGRESSION_COMMITS = range(7, 10)
 
 SLOWDOWN_COMMIT = 11
 
@@ -307,9 +317,11 @@ def _stage_outcomes(
             continue
 
         if name == "lint":
-            outcomes[name] = (
-                ["FAILED"] if (index, repeat) in {(4, 1), (13, 1)} else ["SUCCEEDED"]
-            )
+            broken = index in FIXED_REGRESSION_COMMITS or (index, repeat) in {
+                (4, 1),
+                (13, 1),
+            }
+            outcomes[name] = ["FAILED"] if broken else ["SUCCEEDED"]
         elif name == "unit-tests" and rng.random() < 0.3:
             outcomes[name] = ["FAILED", "SUCCEEDED"]
         elif name == "integration-tests" and index >= REGRESSION_COMMIT:
@@ -466,6 +478,7 @@ def seed_demo(database: Path, *, train_model: bool = True) -> SeedSummary:
 
         with factory.begin() as session:
             repository = Repository(
+                id=DEMO_REPOSITORY_ID,
                 name=REPOSITORY_NAME,
                 local_path=str(paths.workspace),
                 language="python",

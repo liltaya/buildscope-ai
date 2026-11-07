@@ -16,6 +16,7 @@ from buildscope.database.migrate import upgrade_database
 from buildscope.demo.__main__ import main as demo_main
 from buildscope.demo.seed import (
     COMMITS,
+    FIXED_REGRESSION_COMMITS,
     FLAKY_TEST,
     REGRESSION_COMMIT,
     DemoSeedError,
@@ -140,11 +141,16 @@ def test_stage_graph_has_dependencies_and_last_status(client: TestClient) -> Non
     assert stages["build"]["failure_rate"] == 0.0
 
 
-def test_regression_window_names_last_good_and_first_bad(client: TestClient) -> None:
+def test_regression_windows_name_last_good_and_first_bad(client: TestClient) -> None:
     body = client.get("/dashboard/api/insights", params=selection(client)).json()
 
     assert len(body["commits"]) == len(COMMITS)
-    [window] = body["regressions"]
+    closed, window = body["regressions"]
+
+    assert closed["open"] is False
+    assert closed["last_good"]["subject"] == COMMITS[FIXED_REGRESSION_COMMITS[0] - 1]
+    assert closed["first_bad"]["subject"] == COMMITS[FIXED_REGRESSION_COMMITS[0]]
+
     assert window["open"] is True
     assert window["branch"] == "main"
     assert window["last_good"]["subject"] == COMMITS[REGRESSION_COMMIT - 1]
@@ -195,10 +201,34 @@ def test_predictions_panel_with_trained_demo_model(
     assert body["enabled"] is True
     assert body["calibrated"] is False
     assert body["threshold"] == 0.5
-    assert {item["stage"] for item in body["predictions"]} >= {"lint", "package"}
-    assert all(0 <= item["score"] <= 1 for item in body["predictions"])
+
+    scores = {item["stage"]: item["score"] for item in body["predictions"]}
+    flagged = {item["stage"] for item in body["predictions"] if item["flagged"]}
+
+    assert set(scores) == {
+        "lint",
+        "build",
+        "unit-tests",
+        "integration-tests",
+        "bench-statement-parser",
+        "package",
+    }
+    assert all(0 <= score <= 1 for score in scores.values())
+
+    # The open regression ranks first, the flaky stage next, and stages that
+    # never failed sit below both and under the threshold.
+    assert max(scores, key=scores.__getitem__) == "integration-tests"
+    assert "integration-tests" in flagged
+    assert scores["unit-tests"] > scores["lint"]
+
+    for stage in ("build", "bench-statement-parser", "package"):
+        assert scores[stage] < scores["unit-tests"]
+        assert stage not in flagged
+
+    # Ranking on the chronological holdout must be well above chance; the
+    # dashboard shows a warning below 0.6.
     assert body["holdout"]["rows"] > 0
-    assert "roc_auc" in body["holdout"]
+    assert body["holdout"]["roc_auc"] > 0.75
 
 
 def test_predictions_panel_explains_how_to_enable(client: TestClient) -> None:

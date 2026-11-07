@@ -17,6 +17,7 @@ from buildscope.database import create_session_factory, create_sqlite_engine
 from buildscope.database.migrate import upgrade_database
 from buildscope.database.session import SessionFactory
 from buildscope.datasets.failures import (
+    RECENT_WINDOW,
     build_failure_examples,
     export_failure_dataset,
 )
@@ -149,9 +150,21 @@ def test_every_example_uses_only_runs_finished_before_it_was_queued(
             and item.finished_at < target.queued_at
         ]
 
-        assert example.features["prior_attempts"] == len(visible), target
-        assert example.features["prior_failures"] == sum(
-            item.failed for item in visible
+        assert example.prior_attempts == len(visible), target
+
+        failures = sum(item.failed for item in visible)
+        assert example.features["prior_failure_rate"] == (
+            failures / len(visible) if visible else None
+        ), target
+
+        # History is ordered by when runs finished, not when they were queued.
+        recent = sorted(visible, key=lambda item: (item.finished_at, str(item.run_id)))
+        recent = recent[-RECENT_WINDOW:]
+        assert example.features["recent_failure_rate"] == (
+            sum(item.failed for item in recent) / len(recent) if recent else None
+        ), target
+        assert example.features["last_attempt_failed"] == (
+            int(recent[-1].failed) if recent else None
         ), target
 
 
@@ -182,7 +195,7 @@ def test_run_finishing_at_queue_instant_is_not_history(
     examples = [
         example
         for example in build_failure_examples(factory)
-        if example.queued_at == boundary and example.features["stage_name"] == "build"
+        if example.queued_at == boundary and example.stage_name == "build"
     ]
 
     assert len(examples) == 1
@@ -199,7 +212,7 @@ def test_run_finishing_at_queue_instant_is_not_history(
     ]
 
     assert len(at_instant) == 1
-    assert examples[0].features["prior_attempts"] == len(strictly_before)
+    assert examples[0].prior_attempts == len(strictly_before)
 
 
 def test_splits_are_disjoint_by_run_and_chronological(

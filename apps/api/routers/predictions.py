@@ -33,14 +33,26 @@ router = APIRouter(
 class PredictPipelineRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    repository_id: UUID
+    repository_id: UUID = Field(
+        description=(
+            "A registered repository. GET /repositories lists them, and the "
+            "dashboard URL carries the selected one."
+        ),
+    )
     pipeline_name: str = Field(
         min_length=1,
         max_length=128,
+        description="Name of a saved pipeline.",
+        examples=["ci"],
     )
     version: int = Field(
         ge=1,
         strict=True,
+        description=(
+            "Saved pipeline version. GET /repositories/{repository_id}"
+            "/pipelines/{pipeline_name}/versions lists them."
+        ),
+        examples=[2],
     )
 
 

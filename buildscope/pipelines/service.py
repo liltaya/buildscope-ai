@@ -19,8 +19,12 @@ from buildscope.repositories.errors import RepositoryNotFoundError
 from buildscope.repositories.models import Repository
 
 
-class PipelineNotFoundError(Exception):
-    """The requested pipeline version does not exist."""
+class PipelineNotFoundError(LookupError):
+    """The requested pipeline version does not exist.
+
+    A LookupError, so routes that map lookups to 404 catch it without
+    naming it.
+    """
 
 
 class PipelineVersionConflictError(Exception):
