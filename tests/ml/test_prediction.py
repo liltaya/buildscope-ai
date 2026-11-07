@@ -58,6 +58,7 @@ from buildscope.pipelines.run_models import PipelineRunRecord, StageRunRecord
 from buildscope.pipelines.service import PipelineService
 from buildscope.repositories.models import Repository
 from buildscope.workers.models import WorkerJobRecord
+from tests.helpers import local_client
 
 
 def sample_features(
@@ -491,10 +492,7 @@ def test_api_disabled_by_default(
     app = FastAPI()
     app.include_router(router)
 
-    client = TestClient(
-        app,
-        client=("127.0.0.1", 50000),
-    )
+    client = local_client(app)
 
     response = client.post(
         "/predictions/stages",
@@ -594,10 +592,7 @@ def test_api_returns_readonly_scores(
     app = FastAPI()
     app.include_router(router)
 
-    response = TestClient(
-        app,
-        client=("127.0.0.1", 50000),
-    ).post(
+    response = local_client(app).post(
         "/predictions/stages",
         json={
             "repository_id": str(uuid4()),
@@ -781,11 +776,7 @@ def test_real_prediction_never_enqueues_or_executes(
     monkeypatch.setenv("BUILDSCOPE_TRUSTED_MODEL_DIR", str(model_dir))
     monkeypatch.setenv("BUILDSCOPE_DATABASE_PATH", str(database))
 
-    with TestClient(
-        create_app(database_path=database),
-        client=("127.0.0.1", 50000),
-        base_url="http://127.0.0.1",
-    ) as client:
+    with local_client(create_app(database_path=database)) as client:
         response = client.post(
             "/predictions/stages",
             json={

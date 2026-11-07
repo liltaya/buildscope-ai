@@ -3,8 +3,6 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
-
 from apps.api.main import create_app
 from buildscope.database import (
     create_schema,
@@ -12,6 +10,7 @@ from buildscope.database import (
     create_sqlite_engine,
 )
 from buildscope.repositories.service import RepositoryService
+from tests.helpers import local_client
 
 
 def test_service_detection_persists(
@@ -64,7 +63,7 @@ def test_detect_endpoint_persists_results(
 
     app = create_app(database_path=tmp_path / "database.sqlite3")
 
-    with TestClient(app) as client:
+    with local_client(app) as client:
         created = client.post(
             "/repositories",
             json={
@@ -100,7 +99,7 @@ def test_detection_missing_repository(
 ) -> None:
     app = create_app(database_path=tmp_path / "database.sqlite3")
 
-    with TestClient(app) as client:
+    with local_client(app) as client:
         response = client.post(f"/repositories/{uuid4()}/detect")
 
         assert response.status_code == 404
@@ -114,7 +113,7 @@ def test_detection_rejects_deleted_folder(
 
     app = create_app(database_path=tmp_path / "database.sqlite3")
 
-    with TestClient(app) as client:
+    with local_client(app) as client:
         created = client.post(
             "/repositories",
             json={
@@ -148,7 +147,7 @@ def test_unsupported_project_returns_warning(
 
     app = create_app(database_path=tmp_path / "database.sqlite3")
 
-    with TestClient(app) as client:
+    with local_client(app) as client:
         created = client.post(
             "/repositories",
             json={

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import os
-from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import (
@@ -14,11 +12,11 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    Request,
     Response,
 )
 from fastapi.responses import FileResponse
 
+from apps.api.security import require_local_request
 from buildscope.dashboard.service import (
     DashboardNotFoundError,
     DashboardService,
@@ -60,44 +58,8 @@ _HEADERS = {
 }
 
 
-def require_local_dashboard(
-    request: Request,
-) -> None:
-    """Reject remote clients and untrusted Host/Origin headers."""
-    client = request.client.host if request.client else ""
-
-    try:
-        client_is_local = ip_address(client).is_loopback
-    except ValueError:
-        client_is_local = False
-
-    if not client_is_local:
-        raise HTTPException(
-            status_code=403,
-            detail="Loopback clients only",
-        )
-
-    host = request.headers.get("host", "")
-    parsed_host = urlsplit("http://" + host).hostname
-
-    if parsed_host not in {
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    }:
-        raise HTTPException(
-            status_code=403,
-            detail="Untrusted Host header",
-        )
-
-    origin = request.headers.get("origin")
-
-    if origin and urlsplit(origin).netloc != host:
-        raise HTTPException(
-            status_code=403,
-            detail="Cross-origin requests denied",
-        )
-
+def require_dashboard_enabled() -> None:
+    """Serve the dashboard only when the operator has opted in."""
     if os.getenv("BUILDSCOPE_ENABLE_LOCAL_DASHBOARD") != "1":
         raise HTTPException(
             status_code=503,
@@ -108,7 +70,10 @@ def require_local_dashboard(
 router = APIRouter(
     prefix="/dashboard",
     tags=["dashboard"],
-    dependencies=[Depends(require_local_dashboard)],
+    dependencies=[
+        Depends(require_local_request),
+        Depends(require_dashboard_enabled),
+    ],
 )
 
 

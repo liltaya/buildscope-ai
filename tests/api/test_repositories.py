@@ -8,13 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import create_app
+from tests.helpers import local_client
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
     app = create_app(database_path=tmp_path / "database" / "buildscope.db")
 
-    with TestClient(app) as test_client:
+    with local_client(app) as test_client:
         yield test_client
 
 
@@ -209,7 +210,7 @@ def test_repository_persists_across_app_restarts(
     repository_path = tmp_path / "project"
     repository_path.mkdir()
 
-    with TestClient(create_app(database_path=database_path)) as first:
+    with local_client(create_app(database_path=database_path)) as first:
         response = first.post(
             "/repositories",
             json={
@@ -221,7 +222,7 @@ def test_repository_persists_across_app_restarts(
         assert response.status_code == 201
         repository_id = response.json()["id"]
 
-    with TestClient(create_app(database_path=database_path)) as second:
+    with local_client(create_app(database_path=database_path)) as second:
         response = second.get(f"/repositories/{repository_id}")
 
         assert response.status_code == 200

@@ -10,6 +10,7 @@ from apps.api.schemas.pipelines import (
     PipelineCreateRequest,
     PipelineVersionResponse,
 )
+from apps.api.security import require_local_request
 from buildscope.pipelines.loader import PipelineConfigError
 from buildscope.pipelines.service import (
     PipelineNotFoundError,
@@ -22,6 +23,7 @@ from buildscope.repositories.errors import RepositoryNotFoundError
 router = APIRouter(
     prefix="/repositories/{repository_id}/pipelines",
     tags=["pipelines"],
+    dependencies=[Depends(require_local_request)],
 )
 
 ServiceDependency = Annotated[
