@@ -201,11 +201,13 @@ void close_pair(int pair[2]) {
 void notify_exec_error(int fd) {
     const int code = errno;
 
-    (void)write(
-        fd,
-        &code,
-        sizeof(code)
-    );
+    // If this report is lost the parent still sees exit status 127; only
+    // the errno detail is missing, so a failed write is not retried.
+    while (
+        write(fd, &code, sizeof(code)) < 0
+        && errno == EINTR
+    ) {
+    }
 
     _exit(127);
 }
