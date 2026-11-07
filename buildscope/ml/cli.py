@@ -1,4 +1,4 @@
-"""Train a failure-classification baseline from Part 26 exports"""
+"""Train a failure-classification baseline from exported failure datasets"""
 
 from __future__ import annotations
 

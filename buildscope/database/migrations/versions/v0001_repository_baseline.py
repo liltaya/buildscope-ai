@@ -32,11 +32,11 @@ def upgrade() -> None:
         if existing_columns != expected_columns:
             raise RuntimeError(
                 "Existing repositories schema does not match "
-                "the expected Part 6 schema. "
+                "the pre-migration schema. "
                 f"Found columns: {sorted(existing_columns)}"
             )
 
-        # The Part 6 table already exists; preserve its data.
+        # The table predates migrations; keep its rows.
         return
 
     op.create_table(
