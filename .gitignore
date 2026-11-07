@@ -1,40 +1,45 @@
 # macOS
 .DS_Store
 
-# Python virtual environments
+# Python
 .venv/
-
-# Python cache
 __pycache__/
 *.py[cod]
-
-# Test/tool caches
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Package/build output
-*.egg-info/
+# Build output
 dist/
-site/
-
-# C/C++
 build/
+build-*/
 cmake-build-*/
 compile_commands.json
 
-# IDE
+# Editors and local assistant configuration
 .vscode/
 .idea/
+.claude/
+CLAUDE.md
 
-# Runtime data
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime state: databases, models, datasets and logs
 data/
 models/
-
-# Logs
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.joblib
+*.pkl
 *.log
-data/benchmark-demo/
-data/benchmark-analysis.json
-data/execution-logs/
-data/datasets/
-data/models/

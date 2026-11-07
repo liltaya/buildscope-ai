@@ -1,7 +1,6 @@
 """Store pipeline runs and their stage execution results"""
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0003_pipeline_runs"

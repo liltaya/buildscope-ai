@@ -9,10 +9,10 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from apps.api.routers.dashboard import router as dashboard_router
+from apps.api.routers.health import router as health_router
+from apps.api.routers.pipelines import router as pipeline_router
 from apps.api.routers.predictions import router as prediction_router
-from apps.api.routes.health import router as health_router
-from apps.api.routes.pipelines import router as pipeline_router
-from apps.api.routes.repositories import router as repository_router
+from apps.api.routers.repositories import router as repository_router
 from buildscope import version
 from buildscope.database import (
     create_session_factory,
@@ -22,6 +22,7 @@ from buildscope.database.migrate import upgrade_database
 from buildscope.logging import configure_logging
 from buildscope.pipelines.service import PipelineService
 from buildscope.repositories.service import RepositoryService
+from buildscope.settings import database_path as configured_database_path
 
 
 @asynccontextmanager
@@ -65,9 +66,7 @@ def create_app(
     )
 
     application.state.database_path = (
-        database_path
-        if database_path is not None
-        else Path.cwd() / "data" / "buildscope.db"
+        database_path if database_path is not None else configured_database_path()
     )
 
     application.include_router(health_router)

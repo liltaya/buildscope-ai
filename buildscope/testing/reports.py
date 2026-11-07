@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import defusedxml.ElementTree as SafeET
+from defusedxml import DefusedXmlException
+
 ReportKind = Literal["pytest", "ctest", "gtest"]
 TestOutcome = Literal["PASSED", "FAILED", "ERROR", "SKIPPED"]
 
@@ -72,11 +75,14 @@ def parse_test_report(
     if len(raw) > MAX_REPORT_BYTES:
         raise TestReportError("Test XML report exceeds 8 MiB")
 
-    if b"<!DOCTYPE" in raw.upper() or b"<!ENTITY" in raw.upper():
-        raise TestReportError("DTD and XML entity declarations are prohibited")
-
     try:
-        root = ET.fromstring(raw)
+        root = SafeET.fromstring(
+            raw,
+            forbid_dtd=True,
+        )
+
+    except DefusedXmlException as exc:
+        raise TestReportError("DTD and XML entity declarations are prohibited") from exc
 
     except ET.ParseError as exc:
         raise TestReportError(f"Malformed test XML: {exc}") from exc

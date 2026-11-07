@@ -5,7 +5,6 @@ Revises: 0007_job_scheduling
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0008_git_run_history"
