@@ -63,30 +63,36 @@ from tests.helpers import local_client
 
 def sample_features(
     *,
-    stage: str = "checks",
     prior: int = 0,
 ) -> dict[str, object]:
+    """Features for a stage with `prior` earlier runs; all None at zero."""
+    history: dict[str, object]
+
+    if prior == 0:
+        history = dict.fromkeys(
+            (
+                "prior_failure_rate",
+                "prior_timeout_rate",
+                "prior_retry_recovery_rate",
+                "recent_failure_rate",
+                "last_attempt_failed",
+                "prior_test_failure_rate",
+            )
+        )
+    else:
+        history = {
+            "prior_failure_rate": 0.1 * (prior % 3),
+            "prior_timeout_rate": 0.0,
+            "prior_retry_recovery_rate": 0.05,
+            "recent_failure_rate": min(1.0, prior / 10),
+            "last_attempt_failed": prior % 2,
+            "prior_test_failure_rate": (None if prior % 5 == 0 else 0.2),
+        }
+
     return {
-        "pipeline_name": "quality",
-        "pipeline_version": 1,
-        "stage_name": stage,
-        "stage_position": 0,
-        "executable": "python",
-        "argument_count": 2,
-        "command_sha256": "a" * 64,
         "git_worktree_state": "clean",
         "git_head_state": "branch",
-        "queued_hour_utc": 12,
-        "queued_weekday_utc": 1,
-        "prior_attempts": prior,
-        "prior_failures": 0,
-        "prior_timeouts": 0,
-        "prior_failure_rate": (None if prior % 3 == 0 else 0.1),
-        "prior_retry_recoveries": 0,
-        "prior_test_executions": 0,
-        "prior_test_failure_rate": (None if prior % 5 == 0 else 0.2),
-        "prior_benchmark_samples": 0,
-        "prior_benchmark_last_median_seconds": (None if prior % 4 == 0 else 0.05),
+        **history,
     }
 
 
@@ -94,15 +100,7 @@ def sample_features(
 def model_dir(tmp_path: Path) -> Path:
     """Train a small synthetic model solely for inference tests."""
     features = np.vstack(
-        [
-            _feature_row(
-                sample_features(
-                    stage=("checks" if index % 2 else "lint"),
-                    prior=index,
-                )
-            )
-            for index in range(16)
-        ]
+        [_feature_row(sample_features(prior=index)) for index in range(16)]
     )
 
     labels = np.asarray([index % 2 for index in range(16)])
@@ -208,7 +206,6 @@ def test_load_and_predict(
         "checks",
         0,
         sample_features(
-            stage="checks",
             prior=22,
         ),
     )
@@ -229,7 +226,7 @@ def test_invalid_features(
     )
 
     missing = sample_features()
-    del missing["prior_attempts"]
+    del missing["prior_failure_rate"]
 
     with pytest.raises(PredictionError):
         scorer.predict_one(
@@ -239,7 +236,7 @@ def test_invalid_features(
         )
 
     wrong_type = sample_features()
-    wrong_type["prior_attempts"] = "invalid"
+    wrong_type["recent_failure_rate"] = "invalid"
 
     with pytest.raises(PredictionError):
         scorer.predict_one(
@@ -256,6 +253,16 @@ def test_invalid_features(
             "checks",
             0,
             invalid_rate,
+        )
+
+    invalid_flag = sample_features()
+    invalid_flag["last_attempt_failed"] = 2
+
+    with pytest.raises(PredictionError):
+        scorer.predict_one(
+            "checks",
+            0,
+            invalid_flag,
         )
 
 
@@ -436,11 +443,13 @@ def test_live_features_use_only_completed_history(
         as_of=timestamp,
     )[0]
 
-    assert result.values["prior_attempts"] == 1
     assert result.values["prior_failure_rate"] == 1.0
-    assert result.values["prior_retry_recoveries"] == 1
+    assert result.values["prior_retry_recovery_rate"] == 1.0
+    assert result.values["recent_failure_rate"] == 1.0
+    assert result.values["last_attempt_failed"] == 1
     assert result.values["prior_test_failure_rate"] == 0.5
     assert result.values["git_worktree_state"] == "clean"
+    assert result.values["git_head_state"] == "branch"
 
     assert set(result.values) == set(FEATURE_COLUMNS)
 
@@ -786,7 +795,30 @@ def test_real_prediction_never_enqueues_or_executes(
             },
         )
 
+        unknown_version = client.post(
+            "/predictions/stages",
+            json={
+                "repository_id": str(repository_id),
+                "pipeline_name": "quality",
+                "version": 2,
+            },
+        )
+
+        unknown_pipeline = client.post(
+            "/predictions/stages",
+            json={
+                "repository_id": str(repository_id),
+                "pipeline_name": "nightly",
+                "version": 1,
+            },
+        )
+
     engine.dispose()
+
+    # A version or pipeline that does not exist is the client's mistake.
+    assert unknown_version.status_code == 404, unknown_version.text
+    assert "Version 2" in unknown_version.json()["detail"]
+    assert unknown_pipeline.status_code == 404, unknown_pipeline.text
 
     assert response.status_code == 200, response.text
     assert response.json()["predictions"][0]["stage_name"] == "checks"

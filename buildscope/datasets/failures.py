@@ -2,6 +2,13 @@
 
 One row represents the FIRST attempt of a stage. Features are known at
 pipeline enqueue time; history is included only after an earlier run ends.
+
+Features describe a stage's own track record: rates over its earlier first
+attempts, its last few results and the state of the Git worktree. Cumulative
+counts, calendar fields and stage identity are deliberately absent. Under a
+chronological split they let a model learn when a run happened rather than
+whether it fails, and a stage that only starts failing late in the history is
+then scored from its memorised early rates instead of its recent results.
 """
 
 from __future__ import annotations
@@ -11,20 +18,15 @@ import hashlib
 import json
 import os
 import shutil
-import statistics
 import tempfile
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
 
-from buildscope.benchmarks.models import (
-    BenchmarkReportRecord,
-    BenchmarkSampleRecord,
-)
 from buildscope.database.session import SessionFactory
 from buildscope.pipelines.attempt_models import StageAttemptRecord
 from buildscope.pipelines.models import PipelineDefinitionRecord
@@ -34,33 +36,25 @@ from buildscope.pipelines.run_models import (
 )
 from buildscope.testing.models import TestCaseRecord, TestReportRecord
 
-SCHEMA_VERSION = "stage-first-attempt-v1"
+SCHEMA_VERSION = "stage-first-attempt-v2"
 
 MAX_ROWS = 50_000
 MAX_CASES = 200_000
-MAX_BENCHMARK_SAMPLES = 200_000
+
+# How many of a stage's most recent finished first attempts feed the
+# recency features. Short enough to react to a new regression within a
+# few runs, long enough that one flaky result does not dominate.
+RECENT_WINDOW = 5
 
 FEATURE_COLUMNS = (
-    "pipeline_name",
-    "pipeline_version",
-    "stage_name",
-    "stage_position",
-    "executable",
-    "argument_count",
-    "command_sha256",
     "git_worktree_state",
     "git_head_state",
-    "queued_hour_utc",
-    "queued_weekday_utc",
-    "prior_attempts",
-    "prior_failures",
-    "prior_timeouts",
     "prior_failure_rate",
-    "prior_retry_recoveries",
-    "prior_test_executions",
+    "prior_timeout_rate",
+    "prior_retry_recovery_rate",
+    "recent_failure_rate",
+    "last_attempt_failed",
     "prior_test_failure_rate",
-    "prior_benchmark_samples",
-    "prior_benchmark_last_median_seconds",
 )
 
 TARGET_COLUMN = "first_attempt_failed"
@@ -77,6 +71,9 @@ PROVENANCE_COLUMNS = (
     "repository_id",
     "pipeline_run_id",
     "stage_attempt_id",
+    "pipeline_name",
+    "pipeline_version",
+    "stage_name",
     "git_commit_sha",
     "queued_at_utc",
 )
@@ -155,8 +152,6 @@ class _StageObservation:
     is_dirty: bool | None
     test_executions: int = 0
     test_failures: int = 0
-    benchmark_samples: int = 0
-    benchmark_median: float | None = None
 
     @property
     def history_key(
@@ -183,14 +178,15 @@ class _StageObservation:
 
 @dataclass(slots=True)
 class _Prior:
+    """A stage's history as it stood when a run was queued, oldest first."""
+
     attempts: int = 0
     failures: int = 0
     timeouts: int = 0
     retry_recoveries: int = 0
     test_executions: int = 0
     test_failures: int = 0
-    benchmark_samples: int = 0
-    last_benchmark_median: float | None = None
+    recent: deque[int] = field(default_factory=lambda: deque(maxlen=RECENT_WINDOW))
 
     def add(
         self,
@@ -208,10 +204,74 @@ class _Prior:
         self.test_executions += observation.test_executions
         self.test_failures += observation.test_failures
 
-        self.benchmark_samples += observation.benchmark_samples
+        self.recent.append(observation.label)
 
-        if observation.benchmark_median is not None:
-            self.last_benchmark_median = observation.benchmark_median
+    def features(self) -> dict[str, object]:
+        """Rates and recency only; None where the stage has no history yet."""
+        attempts = self.attempts or None
+        recent = list(self.recent)
+
+        return {
+            "prior_failure_rate": (self.failures / attempts if attempts else None),
+            "prior_timeout_rate": (self.timeouts / attempts if attempts else None),
+            "prior_retry_recovery_rate": (
+                self.retry_recoveries / attempts if attempts else None
+            ),
+            "recent_failure_rate": (sum(recent) / len(recent) if recent else None),
+            "last_attempt_failed": (recent[-1] if recent else None),
+            "prior_test_failure_rate": (
+                self.test_failures / self.test_executions
+                if self.test_executions
+                else None
+            ),
+        }
+
+
+def git_state_features(
+    *,
+    is_dirty: bool | None,
+    commit_sha: str | None,
+    branch: str | None,
+) -> dict[str, str]:
+    """Describe the worktree without exporting the commit or branch name."""
+    if is_dirty is True:
+        worktree = "dirty"
+    elif is_dirty is False:
+        worktree = "clean"
+    else:
+        worktree = "unknown"
+
+    if commit_sha is None:
+        head = "non_git_or_unknown"
+    elif branch is None:
+        head = "detached"
+    else:
+        head = "branch"
+
+    return {
+        "git_worktree_state": worktree,
+        "git_head_state": head,
+    }
+
+
+def stage_features(
+    prior: _Prior,
+    *,
+    is_dirty: bool | None,
+    commit_sha: str | None,
+    branch: str | None,
+) -> dict[str, object]:
+    """Assemble one feature row, shared by the export and live prediction."""
+    values: dict[str, object] = {
+        **git_state_features(
+            is_dirty=is_dirty,
+            commit_sha=commit_sha,
+            branch=branch,
+        ),
+        **prior.features(),
+    }
+
+    return {name: values[name] for name in FEATURE_COLUMNS}
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,10 +280,15 @@ class FailureExample:
     run_id: UUID
     repository_id: UUID
     attempt_id: UUID
+    pipeline_name: str
+    pipeline_version: int
+    stage_name: str
     commit_sha: str | None
     queued_at: datetime
     features: dict[str, object]
     label: int
+    # Size of the history behind the features; provenance, not a feature.
+    prior_attempts: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,11 +350,8 @@ def _load_observations(
 
         case_stats: dict[UUID, list[int]] = defaultdict(lambda: [0, 0])
 
-        benchmark_stats: dict[UUID, list[float]] = defaultdict(list)
-
         if stage_ids:
             seen_cases = 0
-            seen_samples = 0
 
             for offset in range(
                 0,
@@ -342,47 +404,10 @@ def _load_observations(
                             }
                         )
 
-                bench_rows = session.execute(
-                    select(
-                        StageAttemptRecord.stage_run_id,
-                        BenchmarkSampleRecord.duration_seconds,
-                    )
-                    .join(
-                        BenchmarkReportRecord,
-                        BenchmarkSampleRecord.benchmark_report_id
-                        == BenchmarkReportRecord.id,
-                    )
-                    .join(
-                        StageAttemptRecord,
-                        BenchmarkReportRecord.stage_attempt_id == StageAttemptRecord.id,
-                    )
-                    .where(
-                        StageAttemptRecord.stage_run_id.in_(stage_batch),
-                        StageAttemptRecord.attempt_number == 1,
-                        BenchmarkReportRecord.parse_status == "PARSED",
-                    )
-                    .limit(MAX_BENCHMARK_SAMPLES + 1 - seen_samples)
-                ).all()
-
-                seen_samples += len(bench_rows)
-
-                if seen_samples > MAX_BENCHMARK_SAMPLES:
-                    raise FailureDatasetError(
-                        "Too many benchmark samples for a bounded export"
-                    )
-
-                for stage_id, seconds in bench_rows:
-                    benchmark_stats[stage_id].append(float(seconds))
-
         result: list[_StageObservation] = []
 
         for attempt, stage, run, definition in rows:
             fingerprint, executable, argc = _command_info(stage.command)
-
-            samples = benchmark_stats.get(
-                stage.id,
-                [],
-            )
 
             test_total, test_failed = case_stats[stage.id]
 
@@ -408,8 +433,6 @@ def _load_observations(
                     is_dirty=run.git_is_dirty,
                     test_executions=test_total,
                     test_failures=test_failed,
-                    benchmark_samples=len(samples),
-                    benchmark_median=(statistics.median(samples) if samples else None),
                 )
             )
 
@@ -471,56 +494,25 @@ def build_failure_examples(
 
         prior = history[item.history_key]
 
-        if item.is_dirty is True:
-            worktree = "dirty"
-        elif item.is_dirty is False:
-            worktree = "clean"
-        else:
-            worktree = "unknown"
-
-        features: dict[str, object] = {
-            "pipeline_name": item.pipeline_name,
-            "pipeline_version": item.pipeline_version,
-            "stage_name": item.stage_name,
-            "stage_position": item.stage_position,
-            "executable": item.executable,
-            "argument_count": item.argument_count,
-            "command_sha256": item.command_sha256,
-            "git_worktree_state": worktree,
-            "git_head_state": (
-                "non_git_or_unknown"
-                if item.commit_sha is None
-                else ("detached" if item.branch is None else "branch")
-            ),
-            "queued_hour_utc": item.queued_at.hour,
-            "queued_weekday_utc": item.queued_at.weekday(),
-            "prior_attempts": prior.attempts,
-            "prior_failures": prior.failures,
-            "prior_timeouts": prior.timeouts,
-            "prior_failure_rate": (
-                prior.failures / prior.attempts if prior.attempts else None
-            ),
-            "prior_retry_recoveries": prior.retry_recoveries,
-            "prior_test_executions": prior.test_executions,
-            "prior_test_failure_rate": (
-                prior.test_failures / prior.test_executions
-                if prior.test_executions
-                else None
-            ),
-            "prior_benchmark_samples": prior.benchmark_samples,
-            "prior_benchmark_last_median_seconds": (prior.last_benchmark_median),
-        }
-
         output.append(
             FailureExample(
                 example_id=hashlib.sha256(str(item.attempt_id).encode()).hexdigest(),
                 run_id=item.run_id,
                 repository_id=item.repository_id,
                 attempt_id=item.attempt_id,
+                pipeline_name=item.pipeline_name,
+                pipeline_version=item.pipeline_version,
+                stage_name=item.stage_name,
                 commit_sha=item.commit_sha,
                 queued_at=item.queued_at,
-                features=features,
+                features=stage_features(
+                    prior,
+                    is_dirty=item.is_dirty,
+                    commit_sha=item.commit_sha,
+                    branch=item.branch,
+                ),
                 label=item.label,
+                prior_attempts=prior.attempts,
             )
         )
 
@@ -687,6 +679,9 @@ def export_failure_dataset(
                         "repository_id": str(item.repository_id),
                         "pipeline_run_id": str(item.run_id),
                         "stage_attempt_id": str(item.attempt_id),
+                        "pipeline_name": item.pipeline_name,
+                        "pipeline_version": item.pipeline_version,
+                        "stage_name": item.stage_name,
                         "git_commit_sha": (item.commit_sha or ""),
                         "queued_at_utc": (item.queued_at.isoformat()),
                     }
@@ -725,6 +720,7 @@ def export_failure_dataset(
             "excluded": ("cancelled and blocked first attempts; later retries"),
             "feature_columns": list(FEATURE_COLUMNS),
             "non_feature_columns": ["example_id"],
+            "recent_window_runs": RECENT_WINDOW,
             "provenance_file": "provenance.csv",
             "split_method": ("chronological_by_pipeline_queued_at_grouped_by_run"),
             "split_target_fraction": {
@@ -740,7 +736,15 @@ def export_failure_dataset(
                 "Do not use provenance or example_id as model features.",
                 "Past-run features include only runs finished strictly before queued_at.",
                 "Historical test statistics use first-attempt PARSED reports only.",
-                "Benchmark median may come from a different host environment.",
+                (
+                    "recent_failure_rate and last_attempt_failed cover the stage's "
+                    f"last {RECENT_WINDOW} finished first attempts."
+                ),
+                (
+                    "Cumulative counts, calendar fields and stage identity are not "
+                    "exported: under a chronological split they track time, not "
+                    "failure."
+                ),
                 "An individual run never appears in multiple splits.",
                 "Time-overlapping runs may require an embargo for rigorous evaluation.",
             ],

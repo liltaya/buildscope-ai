@@ -154,7 +154,7 @@ lower priorities.
 | Git regressions | clean runs on a branch, same pipeline version | a `FAILED` run on commit B directly after a `SUCCEEDED` run on a different commit A gives the window A to B |
 | Test reliability | parsed JUnit, CTest and GoogleTest cases | retry recovery, then same-commit variability, then mixed results across commits, then consistent failure or stable pass |
 | Benchmarks | `process_wall_time` samples per commit | slowdown when the median rises by at least the threshold (default 20 %) and by more than 3 x the summed MADs |
-| Failure dataset | first attempt of each stage | features use only runs that finished before the target run was queued; splits are chronological and grouped by run |
+| Failure dataset | first attempt of each stage | features are the stage's failure, timeout and retry-recovery rates, its last five results, its test failure rate and the Git state, from runs that finished before the target run was queued; splits are chronological and grouped by run |
 
 ## Predictions
 

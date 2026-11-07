@@ -13,6 +13,7 @@ from buildscope.datasets.failures import (
     _command_info,
     _load_observations,
     _Prior,
+    stage_features,
 )
 from buildscope.git.history import capture_git_snapshot
 from buildscope.pipelines.graph import build_pipeline_plan
@@ -117,7 +118,7 @@ def build_live_stage_features(
     outputs: list[StageFeatures] = []
 
     for position, stage in enumerate(plan.ordered_stages):
-        command_sha, executable, count = _command_info(stage.command)
+        command_sha, _, _ = _command_info(stage.command)
 
         key = (
             repository_id,
@@ -132,49 +133,16 @@ def build_live_stage_features(
             _Prior(),
         )
 
-        if snapshot is None:
-            worktree = "unknown"
-            head = "non_git_or_unknown"
-
-        else:
-            worktree = "dirty" if snapshot.is_dirty else "clean"
-
-            head = "detached" if snapshot.branch is None else "branch"
-
-        values: dict[str, object] = {
-            "pipeline_name": saved.name,
-            "pipeline_version": saved.version,
-            "stage_name": stage.name,
-            "stage_position": position,
-            "executable": executable,
-            "argument_count": count,
-            "command_sha256": command_sha,
-            "git_worktree_state": worktree,
-            "git_head_state": head,
-            "queued_hour_utc": now.hour,
-            "queued_weekday_utc": now.weekday(),
-            "prior_attempts": prior.attempts,
-            "prior_failures": prior.failures,
-            "prior_timeouts": prior.timeouts,
-            "prior_failure_rate": (
-                prior.failures / prior.attempts if prior.attempts else None
-            ),
-            "prior_retry_recoveries": (prior.retry_recoveries),
-            "prior_test_executions": (prior.test_executions),
-            "prior_test_failure_rate": (
-                prior.test_failures / prior.test_executions
-                if prior.test_executions
-                else None
-            ),
-            "prior_benchmark_samples": (prior.benchmark_samples),
-            "prior_benchmark_last_median_seconds": (prior.last_benchmark_median),
-        }
-
         outputs.append(
             StageFeatures(
                 stage_name=stage.name,
                 stage_position=position,
-                values=values,
+                values=stage_features(
+                    prior,
+                    is_dirty=(None if snapshot is None else snapshot.is_dirty),
+                    commit_sha=(None if snapshot is None else snapshot.commit_sha),
+                    branch=(None if snapshot is None else snapshot.branch),
+                ),
             )
         )
 

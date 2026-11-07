@@ -73,30 +73,18 @@ def make_dataset(
             example_id = f"example-{i:04d}"
 
             attrs = {
-                "pipeline_name": "quality",
-                "pipeline_version": 1,
-                "stage_name": ("test" if i % 2 else "lint"),
-                "stage_position": (0 if i % 2 else 1),
-                "executable": ("pytest" if i % 2 else "ruff"),
-                "argument_count": 2,
-                "command_sha256": ("a" * 64 if i % 2 else "b" * 64),
-                "git_worktree_state": "clean",
+                "git_worktree_state": ("dirty" if i % 2 else "clean"),
                 "git_head_state": "branch",
-                "queued_hour_utc": i % 24,
-                "queued_weekday_utc": i % 7,
-                "prior_attempts": i,
-                "prior_failures": i // 4,
-                "prior_timeouts": i // 20,
                 "prior_failure_rate": ("" if i % 7 == 0 else 0.25),
-                "prior_retry_recoveries": i // 10,
-                "prior_test_executions": i * 4,
+                "prior_timeout_rate": ("" if i % 7 == 0 else 0.0),
+                "prior_retry_recovery_rate": ("" if i % 7 == 0 else 0.1),
+                "recent_failure_rate": ("" if i % 7 == 0 else (0.6 if y else 0.2)),
+                "last_attempt_failed": ("" if i % 7 == 0 else i % 2),
                 "prior_test_failure_rate": ("" if i % 5 == 0 else 0.12),
-                "prior_benchmark_samples": 0,
-                "prior_benchmark_last_median_seconds": "",
             }
 
             if name != "train" and i % 3 == 0:
-                attrs["executable"] = "unseen-test-tool"
+                attrs["git_head_state"] = "unseen-head-state"
 
             records.append(
                 {
@@ -246,9 +234,9 @@ def test_no_refit_on_unseen_validation_categories(
 
     encoder = model.named_steps["preprocess"].named_transformers_["categories"]
 
-    executable_index = CATEGORICAL_COLUMNS.index("executable")
+    head_index = CATEGORICAL_COLUMNS.index("git_head_state")
 
-    assert "unseen-test-tool" not in encoder.categories_[executable_index]
+    assert "unseen-head-state" not in encoder.categories_[head_index]
 
 
 def test_reject_single_class_train(
@@ -388,6 +376,39 @@ def test_reject_invalid_numeric(
     with pytest.raises(
         ModelTrainingError,
         match="Non-finite",
+    ):
+        train_failure_classifier(
+            dataset,
+            tmp_path / "model",
+        )
+
+
+def test_reject_last_attempt_flag_outside_zero_and_one(
+    dataset: Path,
+    tmp_path: Path,
+) -> None:
+    path = dataset / "train.csv"
+
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+
+    rows[1]["last_attempt_failed"] = "2"
+
+    with path.open(
+        "w",
+        newline="",
+    ) as stream:
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=TRAIN_COLUMNS,
+        )
+
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(
+        ModelTrainingError,
+        match="0 or 1",
     ):
         train_failure_classifier(
             dataset,

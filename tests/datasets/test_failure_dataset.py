@@ -227,12 +227,17 @@ def test_first_attempt_label_and_previous_retry(
 
     assert [example.label for example in examples] == [1, 0]
 
-    assert examples[0].features["prior_attempts"] == 0
-    assert examples[1].features["prior_attempts"] == 1
+    assert examples[0].prior_attempts == 0
+    assert examples[0].features["prior_failure_rate"] is None
+    assert examples[0].features["last_attempt_failed"] is None
 
+    assert examples[1].prior_attempts == 1
     assert examples[1].features["prior_failure_rate"] == 1.0
+    assert examples[1].features["recent_failure_rate"] == 1.0
+    assert examples[1].features["last_attempt_failed"] == 1
 
-    assert examples[1].features["prior_retry_recoveries"] == 1
+    # The first attempt failed and the retry passed: a retry recovery.
+    assert examples[1].features["prior_retry_recovery_rate"] == 1.0
 
 
 def test_in_flight_result_excluded(
@@ -255,10 +260,11 @@ def test_in_flight_result_excluded(
     examples = build_failure_examples(context.factory)
 
     # The first run had not finished when the second was queued.
-    assert examples[1].features["prior_attempts"] == 0
+    assert examples[1].prior_attempts == 0
+    assert examples[1].features["prior_failure_rate"] is None
 
 
-def test_previous_test_and_benchmark_features(
+def test_previous_test_features_without_benchmark_columns(
     context: Context,
 ) -> None:
     add_run(
@@ -287,11 +293,11 @@ def test_previous_test_and_benchmark_features(
 
     features = build_failure_examples(context.factory)[1].features
 
-    assert features["prior_test_executions"] == 2
+    # Two of the three cases count (SKIPPED does not) and one of them failed.
     assert features["prior_test_failure_rate"] == 0.5
-    assert features["prior_benchmark_samples"] == 3
 
-    assert features["prior_benchmark_last_median_seconds"] == pytest.approx(0.2)
+    # Benchmark timings describe speed, not failure, and are not features.
+    assert not any("benchmark" in name for name in features)
 
 
 def test_timeout_positive_and_cancelled_excluded(
@@ -335,8 +341,7 @@ def test_command_arguments_are_not_exported(
     features = build_failure_examples(context.factory)[0].features
 
     assert "secret-password" not in json.dumps(features)
-
-    assert features["argument_count"] == 3
+    assert "command_sha256" not in features
 
 
 def test_chronological_splits_and_provenance(
@@ -369,6 +374,10 @@ def test_chronological_splits_and_provenance(
         "test",
     }
 
+    # Stage identity lives in provenance, where it cannot become a feature.
+    assert {row["pipeline_name"] for row in provenance} == {"quality"}
+    assert {row["stage_name"] for row in provenance} == {"tests"}
+
     for name in (
         "train.csv",
         "validation.csv",
@@ -381,7 +390,11 @@ def test_chronological_splits_and_provenance(
 
     manifest = json.loads((destination / "manifest.json").read_text())
 
-    assert manifest["schema_version"] == "stage-first-attempt-v1"
+    assert manifest["schema_version"] == "stage-first-attempt-v2"
+    assert manifest["recent_window_runs"] == 5
+    assert not {"stage_name", "prior_attempts", "queued_hour_utc"} & set(
+        manifest["feature_columns"]
+    )
 
     with pytest.raises(FileExistsError):
         export_failure_dataset(
@@ -517,11 +530,9 @@ def test_command_fingerprint_partitions_history(
 
     examples = build_failure_examples(context.factory)
 
-    assert examples[1].features["prior_attempts"] == 0
-
-    assert (
-        examples[0].features["command_sha256"] != examples[1].features["command_sha256"]
-    )
+    # A changed command starts a fresh history for the stage.
+    assert examples[1].prior_attempts == 0
+    assert examples[1].features["prior_failure_rate"] is None
 
 
 def test_history_only_after_completion_not_same_run(
@@ -571,6 +582,29 @@ def test_history_only_after_completion_not_same_run(
 
     assert len(examples) == 2
 
-    assert all(example.features["prior_attempts"] == 0 for example in examples)
+    assert all(example.prior_attempts == 0 for example in examples)
 
     assert examples[0].features["git_worktree_state"] == "unknown"
+
+
+def test_recent_window_tracks_the_last_five_results(
+    context: Context,
+) -> None:
+    outcomes = ("FAILED",) * 5 + ("SUCCEEDED",) * 3
+
+    for index, status in enumerate(outcomes):
+        add_run(
+            context,
+            day=index,
+            status=status,
+            finished_day=index + 0.5,
+        )
+
+    latest = build_failure_examples(context.factory)[-1]
+
+    assert latest.prior_attempts == 7
+    assert latest.features["prior_failure_rate"] == pytest.approx(5 / 7)
+
+    # The last five finished runs are FAILED, FAILED, FAILED, SUCCEEDED, SUCCEEDED.
+    assert latest.features["recent_failure_rate"] == pytest.approx(3 / 5)
+    assert latest.features["last_attempt_failed"] == 0

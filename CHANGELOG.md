@@ -32,7 +32,10 @@ First release: a local pipeline runner with history analysis and a dashboard.
   across commits, consistent failure, stable pass, insufficient data.
 - Benchmark timing with median and MAD per revision and slowdown detection
   against both a relative threshold and a noise floor.
-- Leakage-safe failure dataset export with chronological, run-grouped splits.
+- Leakage-safe failure dataset export with chronological, run-grouped splits and
+  track-record features (failure, timeout and retry-recovery rates, the last
+  five results, the test failure rate and the Git state), with no counts,
+  calendar fields or stage identity.
 - A logistic-regression failure model with holdout metrics against a
   constant-prior baseline.
 - Read-only stage failure scores from a trusted local model.

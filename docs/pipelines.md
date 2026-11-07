@@ -137,3 +137,9 @@ python -m buildscope.ml.predict_cli --model data/model --trusted-model \
 `data/model` must be owned by you and not writable by anyone else; the loader
 refuses it otherwise. `metrics.json` reports precision, recall, F1, ROC AUC and
 Brier score for the model and a constant-prior baseline on the same holdout.
+
+Features are rates over the stage's earlier first attempts, its last five
+results and the Git worktree state. Cumulative counts, calendar fields and
+stage identity are not exported. Under a chronological split they track time
+rather than failure, and a model that learns them ranks below chance on its own
+holdout as soon as a different stage starts failing.

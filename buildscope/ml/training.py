@@ -41,20 +41,17 @@ from sklearn.preprocessing import (
 
 from buildscope.datasets.failures import (
     FEATURE_COLUMNS,
+    RECENT_WINDOW,
     SCHEMA_VERSION,
     TARGET_COLUMN,
     TRAIN_COLUMNS,
 )
 
-MODEL_SCHEMA_VERSION = "failure-logreg-v1"
+MODEL_SCHEMA_VERSION = "failure-logreg-v2"
 THRESHOLD = 0.5
 SEED = 42
 
 CATEGORICAL_COLUMNS = (
-    "pipeline_name",
-    "stage_name",
-    "executable",
-    "command_sha256",
     "git_worktree_state",
     "git_head_state",
 )
@@ -63,25 +60,14 @@ NUMERIC_COLUMNS = tuple(
     name for name in FEATURE_COLUMNS if name not in CATEGORICAL_COLUMNS
 )
 
-INTEGER_COLUMNS = frozenset(
-    {
-        "pipeline_version",
-        "stage_position",
-        "argument_count",
-        "queued_hour_utc",
-        "queued_weekday_utc",
-        "prior_attempts",
-        "prior_failures",
-        "prior_timeouts",
-        "prior_retry_recoveries",
-        "prior_test_executions",
-        "prior_benchmark_samples",
-    }
-)
+FLAG_COLUMNS = frozenset({"last_attempt_failed"})
 
 RATE_COLUMNS = frozenset(
     {
         "prior_failure_rate",
+        "prior_timeout_rate",
+        "prior_retry_recovery_rate",
+        "recent_failure_rate",
         "prior_test_failure_rate",
     }
 )
@@ -148,20 +134,11 @@ def _numeric(value: str, column: str) -> float:
     if not math.isfinite(number):
         raise ModelTrainingError(f"Non-finite number in {column}")
 
-    if column in INTEGER_COLUMNS and (number < 0 or not number.is_integer()):
-        raise ModelTrainingError(f"Invalid nonnegative integer in {column}")
-
-    if column == "queued_hour_utc" and number > 23:
-        raise ModelTrainingError("queued_hour_utc must be 0-23")
-
-    if column == "queued_weekday_utc" and number > 6:
-        raise ModelTrainingError("queued_weekday_utc must be 0-6")
+    if column in FLAG_COLUMNS and number not in (0, 1):
+        raise ModelTrainingError(f"{column} must be 0 or 1")
 
     if column in RATE_COLUMNS and not 0 <= number <= 1:
         raise ModelTrainingError(f"{column} must be between 0 and 1")
-
-    if column == "prior_benchmark_last_median_seconds" and number < 0:
-        raise ModelTrainingError("Benchmark median cannot be negative")
 
     return number
 
@@ -694,6 +671,7 @@ def train_failure_classifier(
             "feature_columns": list(FEATURE_COLUMNS),
             "categorical_columns": list(CATEGORICAL_COLUMNS),
             "numeric_columns": list(NUMERIC_COLUMNS),
+            "recent_window_runs": RECENT_WINDOW,
             "target_column": TARGET_COLUMN,
             "source_file_sha256": hashes,
             "model_joblib_sha256": _sha256(model_path),

@@ -37,8 +37,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(str(exc))
 
     paths = summary.paths
-    print(f"database:  {paths.database}")
-    print(f"workspace: {paths.workspace}")
+    print(f"database:   {paths.database}")
+    print(f"workspace:  {paths.workspace}")
+    print(f"repository: {summary.repository_id}")
     print(
         f"recorded {summary.runs} runs, {summary.test_reports} test reports, "
         f"{summary.benchmark_reports} benchmark reports"
@@ -47,10 +48,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     serve = f"buildscope serve --database {paths.database}"
 
     if summary.model_trained:
-        print(f"model:     {paths.model}")
+        print(f"model:      {paths.model}")
         serve += f" --model {paths.model}"
 
     print(f"\nOpen the dashboard with:\n  {serve}\n  http://127.0.0.1:8000/dashboard")
+
+    if summary.model_trained:
+        body = (
+            f'{{"repository_id": "{summary.repository_id}", '
+            '"pipeline_name": "ci", "version": 2}'
+        )
+        print(
+            "\nScore the stages of the demo pipeline "
+            "(interactive API docs at http://127.0.0.1:8000/docs):\n"
+            "  curl -s http://127.0.0.1:8000/predictions/stages "
+            "-H 'Content-Type: application/json' \\\n"
+            f"    -d '{body}'"
+        )
 
     return 0
 
