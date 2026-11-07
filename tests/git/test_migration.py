@@ -38,9 +38,11 @@ def test_adds_nullable_git_columns_preserves_rows(
 
             migration_path = (
                 Path(__file__).resolve().parents[2]
-                / "alembic"
+                / "buildscope"
+                / "database"
+                / "migrations"
                 / "versions"
-                / "0008_git_run_history.py"
+                / "v0008_git_run_history.py"
             )
 
             spec = importlib.util.spec_from_file_location(

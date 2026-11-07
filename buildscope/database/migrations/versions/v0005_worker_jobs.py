@@ -1,7 +1,6 @@
 """Add durable jobs for local Python worker processes."""
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0005_worker_jobs"

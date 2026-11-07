@@ -29,9 +29,11 @@ def test_migration_preserves_existing_attempt(
 
             migration_path = (
                 Path(__file__).resolve().parents[2]
-                / "alembic"
+                / "buildscope"
+                / "database"
+                / "migrations"
                 / "versions"
-                / "0009_test_reports.py"
+                / "v0009_test_reports.py"
             )
 
             spec = importlib.util.spec_from_file_location(

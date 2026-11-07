@@ -5,7 +5,6 @@ Revises: 0009_test_reports
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0010_benchmarks"

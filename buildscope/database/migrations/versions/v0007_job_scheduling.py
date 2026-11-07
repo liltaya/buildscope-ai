@@ -5,7 +5,6 @@ Revises: 0006_worker_leases
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0007_job_scheduling"

@@ -1,7 +1,6 @@
 """Add per-attempt persistence for pipeline stages"""
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0004_stage_attempts"

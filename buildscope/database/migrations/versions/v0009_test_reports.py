@@ -5,7 +5,6 @@ Revises: 0008_git_run_history
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0009_test_reports"

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from alembic import context
+
 from buildscope.benchmarks.models import (
     BenchmarkReportRecord,
     BenchmarkSampleRecord,
