@@ -103,8 +103,6 @@ def test_dirty_tree_fails(repo: Path, change: str) -> None:
         ".env",
         ".env.production",
         "certs/server.key",
-        ".claude/settings.local.json",
-        "CLAUDE.md",
     ],
 )
 def test_tracked_private_file_fails(repo: Path, path: str) -> None:

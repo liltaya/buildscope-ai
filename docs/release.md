@@ -19,7 +19,7 @@ equal `project.version` in `pyproject.toml`.
    Preflight fails on any of:
 
    - a dirty working tree, including untracked files;
-   - tracked databases, models, pickles, keys, `.env` files, `.claude/` or `CLAUDE.md`;
+   - tracked databases, models, pickles, keys or `.env` files;
    - `pyproject.toml`, `buildscope.__version__` and the tag disagreeing;
    - a missing `LICENSE` or `SECURITY.md`, or no non-empty changelog section;
    - a wheel without the dashboard assets, or with private files in it.

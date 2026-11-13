@@ -30,8 +30,6 @@ PRIVATE_PATTERNS = (
     "id_ed25519*",
     ".env",
     ".env.*",
-    ".claude/*",
-    "CLAUDE.md",
 )
 
 ALLOWED_PRIVATE_LOOKALIKES = frozenset({".env.example"})

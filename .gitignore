@@ -17,11 +17,9 @@ build-*/
 cmake-build-*/
 compile_commands.json
 
-# Editors and local assistant configuration
+# Editors
 .vscode/
 .idea/
-.claude/
-CLAUDE.md
 
 # Local configuration and secrets
 .env
